@@ -71,6 +71,21 @@
   header .wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
   h1{margin:0;font-size:24px;letter-spacing:-.01em}
   header p{margin:4px 0 0;color:#b9c8dc;font-size:14px}
+  .shipclock{background:rgba(255,255,255,.07);border-radius:14px;padding:10px 14px 10px}
+  .shipclock small{display:block;color:#b9c8dc;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .flipclock{display:flex;align-items:center;gap:4px}
+  .flipclock i{font-style:normal;font:700 30px var(--mono);color:#7f93b0;margin:0 1px}
+  .flipclock i.sm{font-size:22px}
+  .fd{position:relative;display:grid;place-items:center;width:40px;height:54px;border-radius:8px;background:#163a66;color:#fff;font:700 34px var(--mono);overflow:hidden;perspective:200px}
+  .fd::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,.45)}
+  .fd.sm{width:30px;height:40px;font-size:24px;background:#1f4a7e;color:#F5C542}
+  .fd.flip{animation:flipd .38s ease-out}
+  @keyframes flipd{0%{transform:rotateX(0)}45%{transform:rotateX(-90deg)}55%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+  @media (prefers-reduced-motion:reduce){.fd.flip{animation:none}}
+  .ampm{font:700 13px var(--mono);color:#b9c8dc;margin-left:6px;align-self:flex-end;padding-bottom:6px}
+  .shipclock .sub{font-size:12.5px;color:#cfdbea;margin-top:6px}
+  .shipclock .sub.dim{color:#9fb1c8;margin-top:2px}
+  .shipclock .sub b{font:700 12.5px var(--mono);color:#fff}
   .now{display:flex;gap:18px;flex-wrap:wrap}
   .now div{background:rgba(255,255,255,.08);border-radius:10px;padding:8px 14px;min-width:150px}
   .now small{display:block;color:#b9c8dc;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
@@ -115,6 +130,7 @@
   .voy{max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:10px}
   .voy th{position:sticky;top:0;background:var(--card);z-index:1}
   .voy input{padding:4px 6px;font-size:13.5px}
+  .voy td input.tm{width:66px;font-family:var(--mono);text-align:center}
   .voy td.off input{width:70px;font-family:var(--mono);text-align:center}
   .voy tr.change td{background:var(--accent-soft)}
   .voy tr.today td{box-shadow:inset 3px 0 0 var(--ok)}
@@ -147,6 +163,36 @@
   .notes b{display:block;margin-bottom:4px}
   .notes ul{margin:0;padding-left:18px;color:var(--muted)}
   .credit{text-align:center;color:var(--muted);font-size:12.5px;padding:0 20px calc(28px + env(safe-area-inset-bottom));margin-top:-36px}
+  body.crew .admin-only{display:none!important}
+  body:not(.crew) .crew-only{display:none!important}
+  body.crew .step{display:none}
+  .adminbar{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:9px 14px;font-size:13.5px;margin-bottom:14px}
+  .adminbar a{color:inherit;font-weight:700}
+  .banner{display:flex;gap:12px;align-items:center;background:#3B2A05;color:#FFE7A3;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:15px}
+  .banner.info{background:var(--accent-soft);color:var(--ink)}
+  .banner .bi{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.14)}
+  .banner b{font-weight:700}
+  .next{border:2px solid var(--accent)}
+  .next .lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .next .live{color:var(--bad)}
+  .next .dot{width:10px;height:10px;border-radius:50%;background:var(--bad);display:inline-block}
+  .next .ev{font-size:22px;font-weight:700;margin:4px 0 2px}
+  .next .when{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+  .next .when b{font:700 30px var(--mono)}
+  .next .cd{display:inline-block;background:var(--accent);color:#fff;border-radius:999px;padding:3px 12px;font-size:14px;font-weight:700}
+  .next .then{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+  .next .then div{display:flex;gap:10px}
+  .next .then span{font-family:var(--mono);color:var(--ink);min-width:62px}
+  .pos .poshead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .livebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:7px 14px;font-weight:600;font-size:13.5px;text-decoration:none;white-space:nowrap}
+  .livebtn:hover{background:var(--accent-soft)}
+  .prog{height:10px;border-radius:999px;background:var(--line);margin:14px 0 6px;overflow:hidden}
+  .prog .bar{height:100%;background:var(--accent);border-radius:999px;width:0}
+  .progl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+  .progl span:nth-child(2){font-weight:700;color:var(--ink)}
+  .posmap{height:300px;border-radius:12px;margin:14px 0 8px;background:var(--accent-soft);overflow:hidden}
+  .posmap.off{display:none}
+  .shipicon{background:none;border:0}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
   .toast.show{opacity:1}
 </style>
@@ -165,20 +211,49 @@
       <span class="track"><span class="knob" id="themeKnob">☀️</span></span><span id="themeLbl">Light</span>
     </button>
     </div>
-    <div class="now">
-      <div><small>Ship time now (voyage plan)</small><b id="nowShip">--:--</b><span id="nowShipSub"></span></div>
-      <div><small>This device's clock</small><b id="nowDev">--:--</b><span id="nowDevSub"></span></div>
+    <div class="shipclock" aria-live="off">
+      <small>Ship time now</small>
+      <div class="flipclock" id="flip" role="timer" aria-label="Ship time">
+        <span class="fd" id="f0">0</span><span class="fd" id="f1">0</span><i>:</i><span class="fd" id="f2">0</span><span class="fd" id="f3">0</span><i class="sm">:</i><span class="fd sm" id="f4">0</span><span class="fd sm" id="f5">0</span><span class="ampm" id="fAp"></span>
+      </div>
+      <div class="sub"><span id="nowShipSub"></span></div>
+      <div class="sub dim">Your phone: <b id="nowDev">--:--</b> <span id="nowDevSub"></span></div>
     </div>
     </div>
   </div>
 </header>
 
 <main class="wrap">
-  <div id="clockWarn" class="msg warn" style="margin:0 0 16px"></div>
+  <div id="adminBar" class="adminbar admin-only">Admin mode: you can load voyage plans and publish schedules. <a href="#" id="exitAdmin">Switch to crew view</a></div>
+  <div id="chgBanner" class="banner" hidden></div>
+  <div id="clockWarn" class="msg warn admin-only" style="margin:0 0 16px"></div>
+
+  <section class="card next" id="nextCard" hidden>
+    <div id="nextBody"></div>
+  </section>
+
+  <section class="card pos" id="posCard" hidden>
+    <div class="poshead">
+      <div>
+        <h2 style="margin:0">Where's the ship?</h2>
+        <div id="posText" class="muted" style="margin-top:4px"></div>
+      </div>
+      <a id="posLive" class="livebtn" href="https://www.cruisemapper.com/ships/Norwegian-Escape-878" target="_blank" rel="noopener">Live position on CruiseMapper ↗</a>
+    </div>
+    <div class="prog"><div class="bar" id="posBar"></div></div>
+    <div class="progl"><span id="posFrom"></span><span id="posPct"></span><span id="posTo"></span></div>
+    <div id="posMap" class="posmap" role="img" aria-label="Map of the voyage route with the ship's estimated position"></div>
+    <div class="hint" id="posNote">Estimated from the voyage plan (scheduled departure, arrival and route), not live GPS. Use the CruiseMapper button for the live AIS position.</div>
+  </section>
 
   <div class="grid2">
-    <!-- VOYAGE PLAN -->
-    <section class="card">
+    <!-- VOYAGE SUMMARY (crew) -->
+    <section class="card crew-only" id="voySummary">
+      <h2>Voyage</h2>
+      <div id="voySumBody" class="muted">—</div>
+    </section>
+    <!-- VOYAGE PLAN (admin) -->
+    <section class="card admin-only">
       <h2><span class="step">1</span>Voyage plan</h2>
       <p class="sub">Load the voyage plan PDF. Ship time comes from its daily UTC offsets. Check the table and edit any cell if needed.</p>
       <div class="droprow">
@@ -200,8 +275,9 @@
         <div><label for="year">Voyage year</label><input id="year" type="number" min="2020" max="2100"></div>
         <div><label for="chg">Clocks change at (ship time)</label><input id="chg" type="time" value="02:00"></div>
       </div>
+      <div class="row" style="margin:0 0 10px"><div><label for="trackUrl">Live tracker link (CruiseMapper page for your ship)</label><input id="trackUrl" placeholder="https://www.cruisemapper.com/ships/…"></div></div>
       <div class="voy"><table>
-        <thead><tr><th>Date</th><th>Port</th><th>Ship UTC</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th></th></tr></thead>
         <tbody id="voyBody"></tbody>
       </table></div>
       <div class="btns" style="margin-top:10px">
@@ -248,7 +324,7 @@
   </div>
 
   <!-- SCHEDULE -->
-  <section class="card">
+  <section class="card admin-only">
     <h2><span class="step">3</span>Paste the game schedule</h2>
     <p class="sub">Paste a game schedule or a TV channel listing straight from a spreadsheet, email or website. Each line needs a date (11/08/2026, 2026-11-08 or Nov 8) and a time (1:00 PM or 13:00); start and end times like <i>11/07/2026 01:00 GMT</i> work too. A header such as <i>Time (ET)</i>, or a zone written after the times (GMT, ET…), sets the time zone automatically.</p>
     <div class="row" style="margin-bottom:10px">
@@ -261,7 +337,7 @@
   </section>
 
   <section class="card" id="resCard" hidden>
-    <div class="row" style="margin-bottom:12px">
+    <div class="row admin-only" style="margin-bottom:12px">
       <div style="flex:3 1 380px"><label for="rTitle">Report title</label><input id="rTitle"></div>
       <div style="flex:1 1 180px"><label for="rShip">Ship</label><input id="rShip"></div>
       <div style="flex:0 0 auto"><label class="toggle" id="incNetWrap" style="margin-bottom:9px"><input type="checkbox" id="incNet"> Include network column</label></div>
@@ -433,16 +509,22 @@ function parseVoyageText(text,year){
       }
     });
     const off=cands.length?cands[cands.length-1]:(loose.length?loose[loose.length-1]:NaN);
+    // berth times: "pilot-arr dist ARR DEP" (embark day: first time is departure)
+    const isT=t=>/^\d{1,2}:\d{2}$/.test(t), isD=t=>/^\d+\.\d+$/.test(t);
+    let arr='', dep='';
+    for(let i=0;i<toks.length-3;i++){ if(isT(toks[i])&&isD(toks[i+1])&&isT(toks[i+2])&&isT(toks[i+3])){ arr=toks[i+2]; dep=toks[i+3]; break; } }
+    if(!out.length){ const ft=toks.find(isT); if(ft){ dep=ft; arr=''; } }
     // port: words after weekday until operation keyword
     let port='';
     const pm=rest.match(/^\s*(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+(.+?)\s{1,}(?:Dock|C|Anchor|Tender|Ten|Anch|Cruising|At\s*sea)\b/i);
     if(pm) port=pm[1].trim();
     if(/at\s+sea/i.test(rest)) port='At sea';
-    out.push({day,mon,off,port});
+    const pt=x=>x?x.split(':').map(Number).map(pad).join(':'):'';
+    out.push({day,mon,off,port,arr:pt(arr),dep:pt(dep)});
   }
   // assign years with rollover
   let y=year, prevMon=null;
-  return out.map(e=>{ if(prevMon!==null&&e.mon<prevMon-6) y++; prevMon=e.mon; return {date:ymd(y,e.mon,e.day),off:e.off,port:e.port}; });
+  return out.map(e=>{ if(prevMon!==null&&e.mon<prevMon-6) y++; prevMon=e.mon; return {date:ymd(y,e.mon,e.day),off:e.off,port:e.port,arr:e.arr||'',dep:e.dep||''}; });
 }
 
 /* ---------- schedule parsing ---------- */
@@ -544,10 +626,10 @@ const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem('gtc_'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem('gtc_'+k,JSON.stringify(v));}catch(e){}}};
 
 const PRESET={name:'Voyage 66261028 · Barcelona → Port Canaveral',year:2026,days:[
- ['2026-10-28','Barcelona',1],['2026-10-29','Marseille',1],['2026-10-30','Palma de Mallorca',1],['2026-10-31','Cartagena',1],
- ['2026-11-01','Motril',1],['2026-11-02','Cadiz',1],['2026-11-03','Tangier',0],['2026-11-04','At sea',0],['2026-11-05','Las Palmas',0],
+ ['2026-10-28','Barcelona',1,'','17:00'],['2026-10-29','Marseille',1,'07:00','17:00'],['2026-10-30','Palma de Mallorca',1,'11:00','18:00'],['2026-10-31','Cartagena',1,'08:00','18:00'],
+ ['2026-11-01','Motril',1,'07:00','20:00'],['2026-11-02','Cadiz',1,'07:30','19:30'],['2026-11-03','Tangier',0,'07:00','17:00'],['2026-11-04','At sea',0],['2026-11-05','Las Palmas',0,'07:00','13:30'],
  ['2026-11-06','At sea',-1],['2026-11-07','At sea',-1],['2026-11-08','At sea',-2],['2026-11-09','At sea',-3],['2026-11-10','At sea',-4],
- ['2026-11-11','At sea',-4],['2026-11-12','At sea',-5],['2026-11-13','Port Canaveral',-5]].map(([date,port,off])=>({date,port,off}))};
+ ['2026-11-11','At sea',-4],['2026-11-12','At sea',-5],['2026-11-13','Port Canaveral',-5,'07:00','']].map(([date,port,off,arr,dep])=>({date,port,off,arr:arr||'',dep:dep||''}))};
 
 let voy=store.get('voy',null)||PRESET.days.map(x=>({...x}));
 let voyName=store.get('voyName',PRESET.name);
@@ -582,9 +664,11 @@ function renderVoy(){
     return `<tr class="${changed?'change':''} ${e.date===today?'today':''}">
       <td><input type="date" data-i="${i}" data-k="date" value="${e.date}"></td>
       <td><input data-i="${i}" data-k="port" value="${esc(e.port||'')}"></td>
+      <td><input class="tm" data-i="${i}" data-k="arr" value="${esc(e.arr||'')}" placeholder="--:--" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
+      <td><input class="tm" data-i="${i}" data-k="dep" value="${esc(e.dep||'')}" placeholder="--:--" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td class="off"><input data-i="${i}" data-k="off" value="${isNaN(e.off)?'':fmtOffset(e.off).replace('−','-')}" style="${isNaN(e.off)?'border-color:var(--bad)':''}"></td>
       <td>${badge}${tb} <button class="small" data-del="${i}" title="Remove">✕</button></td></tr>`;
-  }).join('')||'<tr><td colspan="4" class="muted">No voyage days yet — load a PDF.</td></tr>';
+  }).join('')||'<tr><td colspan="6" class="muted">No voyage days yet — load a PDF.</td></tr>';
 }
 $('voyBody').addEventListener('change',ev=>{
   const t=ev.target; if(!t.dataset.k) return; const e=voy[+t.dataset.i];
@@ -692,7 +776,7 @@ async function handleFile(file){
     const textList=parseVoyageText(text,y);
     if(!list||list.filter(e=>!isNaN(e.off)).length<textList.filter(e=>!isNaN(e.off)).length) list=textList;
     // fill gaps in column result from text result
-    list.forEach(e=>{ if(isNaN(e.off)){ const t=textList.find(x=>x.date===e.date); if(t&&!isNaN(t.off)) e.off=t.off; } if(!e.port){ const t=textList.find(x=>x.date===e.date); if(t) e.port=t.port; } });
+    list.forEach(e=>{ if(isNaN(e.off)){ const t=textList.find(x=>x.date===e.date); if(t&&!isNaN(t.off)) e.off=t.off; } if(!e.port){ const t=textList.find(x=>x.date===e.date); if(t) e.port=t.port; } const t2=textList.find(x=>x.date===e.date); if(t2){ e.arr=e.arr||t2.arr||''; e.dep=e.dep||t2.dep||''; } });
     const vn=text.match(/VOYAGE\s*(?:NO\.?|#)?\s*(\d+)/i);
     $('voyText').value=text;
     applyVoyage(list,(vn?'Voyage '+vn[1]+' · ':'')+file.name,text);
@@ -719,16 +803,33 @@ $('drop').addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
 function renderNow(){
   const h24=$('h24').checked, now=Date.now();
   const s=shipLocal(voy,chg(),now);
-  if(isNaN(s.off)){ $('nowShip').textContent='--:--'; $('nowShipSub').textContent='no voyage plan'; }
-  else { $('nowShip').textContent=fmtTime(s.h,s.mi,h24); $('nowShipSub').textContent=fmtDate(s.y,s.mo,s.d,s.wd)+' · UTC '+fmtOffset(s.off); }
+  if(isNaN(s.off)){ $('nowShipSub').textContent='No voyage plan loaded'; }
+  else { $('nowShipSub').textContent=fmtDate(s.y,s.mo,s.d,s.wd,true)+' · UTC '+fmtOffset(s.off); }
   const d=new Date(), devOff=-d.getTimezoneOffset()/60;
   $('nowDev').textContent=fmtTime(d.getHours(),d.getMinutes(),h24);
-  $('nowDevSub').textContent=fmtDate(d.getFullYear(),d.getMonth()+1,d.getDate(),d.getDay())+' · UTC '+fmtOffset(devOff);
+  const dd=isNaN(s.off)?0:devOff-s.off;
+  $('nowDevSub').textContent=isNaN(s.off)?'':(dd===0?'(matches ship time)':`(${fmtOffset(Math.abs(dd)).replace(/^[+−]/,'')} h ${dd>0?'ahead of':'behind'} ship time)`);
   let w='';
   if(!isNaN(s.off)&&s.range!=='in') w=`Right now is ${s.range==='before'?'before the start':'after the end'} of the loaded voyage plan, so ship time can’t be trusted. Load the current voyage plan PDF.`;
   else if(!isNaN(s.off)&&devOff!==s.off) w=`This device is set to UTC ${fmtOffset(devOff)}, but the voyage plan puts the ship at UTC ${fmtOffset(s.off)} right now. All conversions below use the <b>voyage plan</b>. (If the ship’s clocks were changed at a different hour, adjust “Clocks change at”.)`;
   $('clockWarn').innerHTML=w; $('clockWarn').style.display=w?'':'none';
 }
+
+/* ---- flip clock, every second ---- */
+let lastDigits='';
+function tickClock(){
+  const s=shipLocal(voy,chg(),Date.now()), h24=$('h24').checked;
+  let digits='------', ap='';
+  if(!isNaN(s.off)){
+    const t=new Date(Date.now()+s.off*3600e3); let h=t.getUTCHours();
+    if(!h24){ ap=h<12?'AM':'PM'; h=h%12||12; }
+    digits=pad(h)+pad(t.getUTCMinutes())+pad(t.getUTCSeconds());
+  }
+  for(let i=0;i<6;i++){ const el=$('f'+i), ch=digits[i]; if(el.textContent!==ch){ el.textContent=ch; if(lastDigits){ el.classList.remove('flip'); void el.offsetWidth; el.classList.add('flip'); } } }
+  $('fAp').textContent=ap; lastDigits=digits;
+  $('flip').setAttribute('aria-label','Ship time '+(isNaN(s.off)?'unknown':fmtTime(s.h,s.mi,h24)));
+}
+setInterval(tickClock,1000);
 
 /* ---- quick convert ---- */
 function renderQuick(){
@@ -832,6 +933,7 @@ function convertSchedule(auto){
     res.push({r,utc,s,e,alt:(alt.off!==s.off?alt:null),y,z,srcOff:zoneOffsetMs(z,utc)/3600e3,past:endMs<now,live:utc<=now&&now<endMs});
   }
   const groups=parsed.rows.map(r=>r.group).filter(Boolean);
+  setTimeout(()=>{ try{ renderNext(); }catch(e){} },0);
   lastResults={res,names,zone,group:groups[0]||'',srcAbbr:(srcAbbr&&ABBR[srcAbbr]===$('sZone').value)?srcAbbr:null};
   renderReport();
   if(!parsed.rows.length) setMsg('sMsg','bad','No lines with both a date and a time were found.');
@@ -984,7 +1086,8 @@ function saveFile(name,data,type){
 /* ---- site data: one voyage plan for everyone ---- */
 function siteData(){
   return {updated:Date.now(),name:voyName,year:+$('year').value,changeTime:chg(),ship:$('rShip').value,
-    days:voy.map(e=>({date:e.date,port:e.port||'',off:isNaN(e.off)?null:e.off})),
+    trackerUrl:$('trackUrl').value.trim(),
+    days:voy.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off})),
     schedule:$('sched').value,scheduleZone:$('sZone').value};
 }
 $('saveSite').onclick=async()=>{
@@ -1002,7 +1105,8 @@ async function loadSiteData(){
   }catch(e){}
 }
 function applySite(d,clicked){
-  voy=d.days.map(e=>({date:e.date,port:e.port||'',off:e.off==null?NaN:+e.off})); voyName=d.name||'';
+  voy=d.days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:e.off==null?NaN:+e.off})); voyName=d.name||'';
+  if(d.trackerUrl){ $('trackUrl').value=d.trackerUrl; store.set('trackUrl',d.trackerUrl); }
   if(d.year) $('year').value=d.year; if(d.changeTime) $('chg').value=d.changeTime; if(d.ship) $('rShip').value=d.ship;
   store.set('voy',voy); store.set('voyName',voyName); store.set('chg',chg()); store.set('localStamp',d.updated||0);
   if(d.schedule&&(clicked||!$('sched').value.trim()||store.get('siteSchedStamp',0)<(d.updated||0))){ $('sched').value=d.schedule; if(d.scheduleZone) $('sZone').value=d.scheduleZone; store.set('siteSchedStamp',d.updated||0); }
@@ -1069,7 +1173,203 @@ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostnam
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-function renderAll(){ renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); }
+/* ---- crew view / admin view ---- */
+function setAdmin(on){
+  try{ localStorage.setItem('gtc_admin',on?'1':'0'); }catch(e){}
+  document.body.classList.toggle('crew',!on);
+}
+let adminOn=false; try{ adminOn=localStorage.getItem('gtc_admin')==='1'; }catch(e){}
+if(location.hash==='#admin') adminOn=true;
+setAdmin(adminOn);
+window.addEventListener('hashchange',()=>{ if(location.hash==='#admin'){ setAdmin(true); renderAll(); } });
+$('exitAdmin').onclick=e=>{ e.preventDefault(); setAdmin(false); try{ history.replaceState(null,'',location.pathname); }catch(_){ } renderAll(); window.scrollTo(0,0); };
+
+function eventLabel(x){
+  const names=lastResults.names||[], ex=x.r.extras.map(e=>e.val);
+  const f=re=>names.findIndex(n=>re.test(n||''));
+  const ai=f(/away|visitor|road/i), hi=f(/home/i), ni=f(/network|broadcast|channel|station|\btv\b/i), ev=f(/event|program|title|show|match|game/i);
+  let title, sub='';
+  if(ai>=0&&hi>=0){ title=`${ex[ai]} @ ${ex[hi]}`; }
+  else if(ev>=0){ title=ex[ev]; }
+  else title=ex.filter(v=>!/^\d{1,2}$/.test(v)).slice(0,2).join(' · ')||'Event';
+  if(ni>=0&&ex[ni]) sub=ex[ni];
+  return {title,sub};
+}
+function fmtLeft(ms){
+  const m=Math.max(0,Math.round(ms/60000)), d=Math.floor(m/1440), h=Math.floor((m%1440)/60), mi=m%60;
+  if(d) return `${d} d ${h} h`; if(h) return `${h} h ${pad(mi)} m`; return `${mi} min`;
+}
+function renderNext(){
+  const res=(lastResults.res||[]).filter(x=>!x.tbd);
+  if(!res.length){ $('nextCard').hidden=true; return; }
+  const now=Date.now(), h24=$('h24').checked;
+  const endOf=x=>x.e?x.e.utc:x.utc+3.5*3600e3;
+  const live=res.filter(x=>x.utc<=now&&now<endOf(x)).sort((a,b)=>a.utc-b.utc);
+  const up=res.filter(x=>x.utc>now).sort((a,b)=>a.utc-b.utc);
+  let html='';
+  const one=(x,isLive)=>{ const L=eventLabel(x), s=x.s;
+    const when=isLive?(x.e?`ends ${fmtTime(x.e.s.h,x.e.s.mi,h24)}`:`started ${fmtTime(s.h,s.mi,h24)}`)
+      :`<span class="cd">in ${fmtLeft(x.utc-now)}</span>`;
+    return `<div class="ev">${esc(L.title)}</div>
+      <div class="when"><b>${fmtTime(s.h,s.mi,h24)}</b><span>${fmtDate(s.y,s.mo,s.d,s.wd,true)} · ship time</span>${when}${L.sub?`<span class="muted">${esc(L.sub)}</span>`:''}</div>`; };
+  if(live.length){
+    html+=`<div class="lbl live"><span class="dot"></span>Live now${live.length>1?` · ${live.length} games`:''}</div>`+one(live[0],true);
+    if(up.length) html+=`<div class="then"><div><span>${fmtTime(up[0].s.h,up[0].s.mi,h24)}</span>Next: ${esc(eventLabel(up[0]).title)} · in ${fmtLeft(up[0].utc-now)}</div></div>`;
+  } else if(up.length){
+    html+=`<div class="lbl">Next up</div>`+one(up[0],false);
+    const more=up.slice(1,4);
+    if(more.length) html+='<div class="then">'+more.map(x=>`<div><span>${fmtTime(x.s.h,x.s.mi,h24)}</span>${WD[x.s.wd]} · ${esc(eventLabel(x).title)}</div>`).join('')+(up.length>4?`<div><span></span>+ ${up.length-4} more below</div>`:'')+'</div>';
+  } else {
+    html+=`<div class="lbl">Schedule</div><div class="ev" style="font-size:18px">All listed games have finished.</div><div class="muted">A new schedule will appear here when it's published.</div>`;
+  }
+  $('nextBody').innerHTML=html; $('nextCard').hidden=false;
+}
+function renderBanner(){
+  const el=$('chgBanner'); const {tr}=voyageTransitions(voy,chg()); const now=Date.now();
+  const nxt=tr.find(t=>t.at>now&&t.at-now<36*3600e3);
+  const last=[...tr].reverse().find(t=>t.at<=now&&now-t.at<8*3600e3);
+  const t=nxt||last; if(!t){ el.hidden=true; return; }
+  const diff=t.to-t.from, dir=diff<0?'back':'forward', hrs=Math.abs(diff), h24=$('h24').checked;
+  const [y,m,d]=t.date.split('-').map(Number); const D=new Date(Date.UTC(y,m-1,d)), P=new Date(Date.UTC(y,m-1,d-1));
+  const night=`${WD[P.getUTCDay()]} ${P.getUTCDate()} → ${WD[D.getUTCDay()]} ${D.getUTCDate()} ${MON(m)}`;
+  const [ch,cm]=chg().split(':').map(Number);
+  const icon=`<span class="bi" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>`;
+  if(nxt){ el.className='banner';
+    el.innerHTML=`${icon}<div><b>Clocks go ${dir} ${hrs} hour${hrs>1?'s':''}</b> at ${fmtTime(ch,cm,h24)} ship time (night of ${night}) · in ${fmtLeft(t.at-now)}.<br><span style="opacity:.85">Game times on this page already include the change.</span></div>`;
+  } else { el.className='banner info';
+    el.innerHTML=`${icon}<div><b>Clocks went ${dir} ${hrs} hour${hrs>1?'s':''}</b> at ${fmtTime(ch,cm,h24)} last night. Ship time is now UTC ${fmtOffset(t.to)}. Check your watch.</div>`; }
+  el.hidden=false;
+}
+function renderVoySummary(){
+  const v=voy.filter(e=>!isNaN(e.off)); if(!v.length){ $('voySumBody').textContent='No voyage plan published yet.'; return; }
+  const s=shipLocal(voy,chg(),Date.now()), today=isNaN(s.off)?null:ymd(s.y,s.mo,s.d);
+  const td=v.find(e=>e.date===today), first=v[0], last=v[v.length-1];
+  const nextPort=v.find(e=>e.date>(today||'')&&e.port&&!/at sea/i.test(e.port));
+  $('voySumBody').innerHTML=`<div style="font-weight:600;color:var(--ink)">${esc(voyName||'Voyage plan')}</div>
+    <div style="margin-top:6px">Today: <b style="color:var(--ink)">${esc(td?(td.port||'—'):'outside the voyage dates')}</b>${isNaN(s.off)?'':` · ship time UTC ${fmtOffset(s.off)}`}</div>
+    ${nextPort?`<div>Next port: <b style="color:var(--ink)">${esc(nextPort.port)}</b> · ${fmtDate(+nextPort.date.slice(0,4),+nextPort.date.slice(5,7),+nextPort.date.slice(8,10),new Date(nextPort.date+'T00:00:00Z').getUTCDay(),true)}</div>`:''}
+    <div class="hint" style="margin-top:8px">${first.date} → ${last.date} · times follow the official voyage plan</div>`;
+}
+/* ---- ship position (estimated from the voyage plan) ---- */
+const PORTS={'barcelona':[41.352,2.165],'marseille':[43.335,5.352],'palma de mallorca':[39.557,2.632],'palma':[39.557,2.632],'cartagena':[37.594,-0.983],
+ 'motril':[36.718,-3.524],'cadiz':[36.533,-6.288],'cádiz':[36.533,-6.288],'tangier':[35.790,-5.806],'las palmas':[28.141,-15.418],'santa cruz de tenerife':[28.471,-16.247],
+ 'funchal':[32.643,-16.912],'madeira':[32.643,-16.912],'lisbon':[38.703,-9.137],'malaga':[36.711,-4.416],'málaga':[36.711,-4.416],'gibraltar':[36.140,-5.353],
+ 'port canaveral':[28.410,-80.604],'miami':[25.776,-80.172],'fort lauderdale':[26.093,-80.118],'new york':[40.765,-74.003],'boston':[42.348,-71.034],
+ 'new orleans':[29.937,-90.059],'galveston':[29.310,-94.793],'tampa':[27.940,-82.446],'san juan':[18.466,-66.110],'nassau':[25.079,-77.341],
+ 'great stirrup cay':[25.823,-77.903],'cozumel':[20.482,-86.966],'costa maya':[18.716,-87.700],'roatan':[16.315,-86.588],'harvest caye':[16.433,-88.383],
+ 'st. thomas':[18.335,-64.926],'st thomas':[18.335,-64.926],'st. maarten':[18.017,-63.048],'tortola':[18.420,-64.617],'puerto plata':[19.808,-70.717],
+ 'bermuda':[32.325,-64.836],'civitavecchia':[42.093,11.786],'rome':[42.093,11.786],'naples':[40.838,14.255],'livorno':[43.548,10.307],'genoa':[44.407,8.924],
+ 'la spezia':[44.104,9.826],'athens':[37.941,23.638],'piraeus':[37.941,23.638],'southampton':[50.899,-1.405],'copenhagen':[55.706,12.599],'reykjavik':[64.152,-21.951]};
+function portLL(name){ if(!name) return null; const k=name.toLowerCase().replace(/\(.*?\)/g,'').trim(); if(PORTS[k]) return PORTS[k];
+  const hit=Object.keys(PORTS).find(p=>k.startsWith(p)||k.includes(p)); return hit?PORTS[hit]:null; }
+const R2D=180/Math.PI, D2R=Math.PI/180;
+function gcPoint(a,b,f){ const [la1,lo1]=a.map(x=>x*D2R),[la2,lo2]=b.map(x=>x*D2R);
+  const d=2*Math.asin(Math.sqrt(Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin((lo2-lo1)/2)**2)); if(d===0) return a;
+  const A=Math.sin((1-f)*d)/Math.sin(d), B=Math.sin(f*d)/Math.sin(d);
+  const x=A*Math.cos(la1)*Math.cos(lo1)+B*Math.cos(la2)*Math.cos(lo2), y=A*Math.cos(la1)*Math.sin(lo1)+B*Math.cos(la2)*Math.sin(lo2), z=A*Math.sin(la1)+B*Math.sin(la2);
+  return [Math.atan2(z,Math.sqrt(x*x+y*y))*R2D, Math.atan2(y,x)*R2D]; }
+function nmBetween(a,b){ const [la1,lo1]=a.map(x=>x*D2R),[la2,lo2]=b.map(x=>x*D2R);
+  return 2*3440.065*Math.asin(Math.sqrt(Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin((lo2-lo1)/2)**2)); }
+function portCalls(){
+  return voy.filter(e=>e.port&&!/at sea|cruising|scenic/i.test(e.port)&&!isNaN(e.off)).map(e=>{
+    const [y,m,d]=e.date.split('-').map(Number);
+    const t=(hm,def)=>{ const [h,mi]=(hm||def).split(':').map(Number); return Date.UTC(y,m-1,d,h,mi)-e.off*3600e3; };
+    return {name:e.port,ll:portLL(e.port),arr:t(e.arr,'07:00'),dep:t(e.dep,'18:00'),arrTxt:e.arr||'07:00',e};
+  });
+}
+function shipPosition(now){
+  const pc=portCalls(); if(pc.length<2) return null;
+  if(now<pc[0].dep) return {state:'port',at:pc[0],calls:pc,legIdx:0};
+  for(let i=0;i<pc.length;i++){
+    const p=pc[i];
+    if(now>=p.arr&&now<p.dep&&i>0) return {state:'port',at:p,calls:pc,legIdx:i};
+    const n=pc[i+1];
+    if(n&&now>=p.dep&&now<n.arr){ const f=(now-p.dep)/(n.arr-p.dep); return {state:'sea',from:p,to:n,f,calls:pc,legIdx:i}; }
+  }
+  return {state:'port',at:pc[pc.length-1],calls:pc,legIdx:pc.length-1,ended:true};
+}
+let posMap=null, posLayer=null, leafletTried=false;
+function loadLeaflet(){
+  if(window.L) return Promise.resolve(window.L);
+  if(leafletTried) return Promise.reject(); leafletTried=true;
+  return new Promise((res,rej)=>{
+    const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+    const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    sc.onload=()=>res(window.L); sc.onerror=()=>rej(); document.head.appendChild(sc);
+  });
+}
+function renderPosition(){
+  const card=$('posCard'), now=Date.now(), P=shipPosition(now);
+  if(!P){ card.hidden=true; return; }
+  card.hidden=false;
+  const url=($('trackUrl').value||'').trim()||store.get('trackUrl','')||'https://www.cruisemapper.com/ships/Norwegian-Escape-878';
+  $('posLive').href=url;
+  const h24=$('h24').checked, arrS=c=>{ const s=shipLocal(voy,chg(),c.arr); return `${WDL[s.wd]} ${s.d} ${MON(s.mo)} ${fmtTime(s.h,s.mi,h24)}`; };
+  let pos, pct=0, txt='';
+  if(P.state==='sea'){
+    pos=(P.from.ll&&P.to.ll)?gcPoint(P.from.ll,P.to.ll,P.f):null; pct=Math.round(P.f*100);
+    const left=(P.from.ll&&P.to.ll)?Math.round(nmBetween(P.from.ll,P.to.ll)*(1-P.f)):null;
+    txt=`At sea between <b style="color:var(--ink)">${esc(P.from.name)}</b> and <b style="color:var(--ink)">${esc(P.to.name)}</b>`+
+        (left!=null?` · about <b style="color:var(--ink)">${left.toLocaleString()} nm</b> to go`:'')+` · arrives ${arrS(P.to)} ship time (in ${fmtLeft(P.to.arr-now)})`;
+    if(pos) txt+=`<br><span style="font-family:var(--mono);font-size:12.5px">≈ ${Math.abs(pos[0]).toFixed(1)}°${pos[0]>=0?'N':'S'} ${Math.abs(pos[1]).toFixed(1)}°${pos[1]>=0?'E':'W'}</span>`;
+    $('posFrom').textContent=P.from.name; $('posTo').textContent=P.to.name; $('posPct').textContent=pct+'% of the way';
+  } else {
+    pos=P.at.ll; pct=P.ended?100:0;
+    txt=P.ended?`Voyage finished at <b style="color:var(--ink)">${esc(P.at.name)}</b>.`:`In port: <b style="color:var(--ink)">${esc(P.at.name)}</b>`;
+    const nx=P.calls[P.legIdx+1]; if(nx&&!P.ended) txt+=` · next: ${esc(nx.name)}, ${arrS(nx)}`;
+    $('posFrom').textContent=P.at.name; $('posTo').textContent=nx?nx.name:''; $('posPct').textContent=P.ended?'Arrived':'In port';
+  }
+  $('posText').innerHTML=txt; $('posBar').style.width=pct+'%';
+  // map
+  const pts=P.calls.filter(c=>c.ll);
+  if(pts.length<2){ $('posMap').classList.add('off'); return; }
+  loadLeaflet().then(L=>{
+    $('posMap').classList.remove('off');
+    if(!posMap){ posMap=L.map('posMap',{zoomControl:true,attributionControl:true,scrollWheelZoom:false,worldCopyJump:true});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:10,attribution:'© OpenStreetMap'}).addTo(posMap); }
+    if(posLayer) posLayer.remove(); posLayer=L.layerGroup().addTo(posMap);
+    const css=getComputedStyle(document.documentElement), acc=css.getPropertyValue('--accent').trim()||'#1368CE';
+    const seg=(a,b)=>{ const r=[]; for(let k=0;k<=24;k++) r.push(gcPoint(a,b,k/24)); return r; };
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i], b=pts[i+1], done=b.arr<=now, cur=P.state==='sea'&&P.from===a;
+      if(cur&&pos){ L.polyline(seg(a.ll,pos),{color:acc,weight:4}).addTo(posLayer); L.polyline(seg(pos,b.ll),{color:acc,weight:3,dashArray:'6 8',opacity:.8}).addTo(posLayer); }
+      else L.polyline(seg(a.ll,b.ll),{color:acc,weight:done?4:3,dashArray:done?null:'6 8',opacity:done?.55:.8}).addTo(posLayer);
+    }
+    pts.forEach(c=>L.circleMarker(c.ll,{radius:5,color:'#0B2545',weight:2,fillColor:'#fff',fillOpacity:1}).bindTooltip(c.name).addTo(posLayer));
+    if(pos){ const icon=L.divIcon({className:'shipicon',iconSize:[34,34],iconAnchor:[17,17],
+        html:'<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="16" fill="#F5C542" stroke="#0B2545" stroke-width="2"/><path d="M8 19h18l-3 5H11z M12 18v-5h8l2 5 M15 13v-3h3v3" fill="#0B2545"/></svg>'});
+      L.marker(pos,{icon,zIndexOffset:1000}).bindTooltip('Estimated position').addTo(posLayer); }
+    const focus=P.state==='sea'?[P.from.ll,P.to.ll]:pts.map(c=>c.ll);
+    posMap.invalidateSize(); posMap.fitBounds(L.latLngBounds(focus.filter(Boolean)).pad(0.15));
+  }).catch(()=>drawRouteSvg(pts,pos,P,now));
+}
+function drawRouteSvg(pts,pos,P,now){
+  const el=$('posMap'); el.classList.remove('off');
+  const all=pts.map(c=>c.ll).concat(pos?[pos]:[]);
+  const lats=all.map(p=>p[0]), lons=all.map(p=>p[1]);
+  let a0=Math.min(...lats),a1=Math.max(...lats),o0=Math.min(...lons),o1=Math.max(...lons);
+  const padA=Math.max(2,(a1-a0)*.12), padO=Math.max(2,(o1-o0)*.08); a0-=padA;a1+=padA;o0-=padO;o1+=padO;
+  const W=1000,H=300, k=Math.cos(((a0+a1)/2)*D2R);
+  const sx=W/((o1-o0)*k), sy=H/(a1-a0), sc=Math.min(sx,sy);
+  const ox=(W-(o1-o0)*k*sc)/2, oy=(H-(a1-a0)*sc)/2;
+  const X=lo=>ox+(lo-o0)*k*sc, Y=la=>oy+(a1-la)*sc;
+  const path=(a,b)=>{ let d=''; for(let j=0;j<=24;j++){ const q=gcPoint(a,b,j/24); d+=(j?'L':'M')+X(q[1]).toFixed(1)+' '+Y(q[0]).toFixed(1); } return d; };
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`;
+  for(let i=0;i<pts.length-1;i++){ const a=pts[i],b=pts[i+1],done=b.arr<=now;
+    if(P.state==='sea'&&P.from===a&&pos){ svg+=`<path d="${path(a.ll,pos)}" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/><path d="${path(pos,b.ll)}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 8" opacity=".8"/>`; }
+    else svg+=`<path d="${path(a.ll,b.ll)}" fill="none" stroke="var(--accent)" stroke-width="${done?4:3}" ${done?'opacity=".5"':'stroke-dasharray="6 8" opacity=".8"'}/>`; }
+  const seen={};
+  pts.forEach(c=>{ const x=X(c.ll[1]),y=Y(c.ll[0]); svg+=`<circle cx="${x}" cy="${y}" r="5" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/>`;
+    const key=Math.round(x/40)+','+Math.round(y/20); if(!seen[key]){ seen[key]=1; svg+=`<text x="${x+8}" y="${y-8}" font-size="13" fill="var(--muted)" font-family="Inter,system-ui,sans-serif">${esc(c.name)}</text>`; } });
+  if(pos){ const x=X(pos[1]),y=Y(pos[0]); svg+=`<circle cx="${x}" cy="${y}" r="13" fill="#F5C542" stroke="#0B2545" stroke-width="2"/><path transform="translate(${x-9} ${y-9}) scale(.55)" d="M8 19h18l-3 5H11z M12 18v-5h8l2 5 M15 13v-3h3v3" fill="#0B2545"/>`; }
+  el.innerHTML=svg+'</svg>';
+}
+$('trackUrl').value=store.get('trackUrl','');
+$('trackUrl').addEventListener('change',()=>{ store.set('trackUrl',$('trackUrl').value.trim()); renderPosition(); });
+
+setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); },60000);
+
+function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); }
 renderAll();
 loadSiteData();
 setInterval(renderNow,20000);
