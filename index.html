@@ -49,6 +49,10 @@
   button.small{padding:4px 10px;font-size:12.5px}
   .btns{display:flex;gap:8px;flex-wrap:wrap}
   .drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--muted);cursor:pointer}
+  .droprow{display:flex;gap:8px;align-items:stretch}
+  .droprow .drop{flex:1}
+  .clearbtn{flex:0 0 auto;color:var(--bad);border-color:var(--line)}
+  .clearbtn:hover{border-color:var(--bad);background:var(--bad-soft)}
   .drop.over{border-color:var(--accent);background:var(--accent-soft)}
   .drop b{color:var(--accent)}
   .msg{border-radius:8px;padding:9px 12px;font-size:13.5px;margin-top:10px}
@@ -117,11 +121,15 @@
     <section class="card">
       <h2><span class="step">1</span>Voyage plan</h2>
       <p class="sub">Load the voyage plan PDF. Ship time comes from its daily UTC offsets. Check the table and edit any cell if needed.</p>
-      <div class="drop" id="drop">
-        <input type="file" id="pdfFile" accept=".pdf,application/pdf,.txt" hidden>
-        <b>Choose voyage plan PDF</b> or drop it here
-        <div class="hint" id="voyName"></div>
+      <div class="droprow">
+        <div class="drop" id="drop">
+          <input type="file" id="pdfFile" accept=".pdf,application/pdf,.txt" hidden>
+          <b>Choose voyage plan PDF</b> or drop it here
+          <div class="hint" id="voyName"></div>
+        </div>
+        <button id="clearVoy" class="clearbtn" title="Remove the loaded voyage plan">✕ Clear</button>
       </div>
+      <div id="clearConfirm" class="msg warn" hidden>Remove the loaded voyage plan? <button class="small" id="clearYes">Yes, clear it</button> <button class="small" id="clearNo">Cancel</button></div>
       <div id="voyMsg" class="msg"></div>
       <details style="margin-top:10px">
         <summary>…or paste the voyage plan text</summary>
@@ -558,6 +566,15 @@ async function handleFile(file){
   }
 }
 $('drop').onclick=()=>$('pdfFile').click();
+$('clearVoy').onclick=()=>{ $('clearConfirm').hidden=!voy.length?true:false; if(!voy.length) toast('Nothing to clear'); };
+$('clearNo').onclick=()=>{ $('clearConfirm').hidden=true; };
+$('clearYes').onclick=()=>{
+  voy=[]; voyName=''; save();
+  $('pdfFile').value=''; $('voyText').value='';
+  $('clearConfirm').hidden=true;
+  setMsg('voyMsg','ok','Voyage plan cleared. Choose the new voyage plan PDF.');
+  renderAll();
+};
 $('pdfFile').onchange=e=>handleFile(e.target.files[0]);
 ['dragover','dragenter'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.add('over');}));
 ['dragleave','drop'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.remove('over');}));
@@ -617,6 +634,7 @@ const offTxt=v=>isNaN(v)?'':(v===0?'0':(v>0?'+':'-')+Math.abs(v));   // ASCII fo
 function convertSchedule(auto){
   const text=$('sched').value; store.set('sched',text);
   if(!text.trim()){ $('resCard').hidden=true; setMsg('sMsg','',''); lastResults={}; return; }
+  if(!voy.some(e=>!isNaN(e.off))){ $('resCard').hidden=true; lastResults={}; setMsg('sMsg','warn','Load a voyage plan in step 1 to convert these times.'); return; }
   const parsed=parseSchedule(text);
   if(parsed.headerZone&&!auto){ $('sZone').value=parsed.headerZone; store.set('sZone',parsed.headerZone); }
   const zone=$('sZone').value; store.set('sZone',zone);
