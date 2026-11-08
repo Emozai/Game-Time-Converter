@@ -131,6 +131,7 @@
   .results tr.past td{opacity:.55}
   .results tr.group td{background:var(--accent-soft);font-weight:700;font-size:13px;color:var(--accent)}
   .quick-out{margin-top:12px;padding:14px;border-radius:10px;background:var(--accent-soft)}
+  .subh{margin:22px 0 2px;font-size:15.5px;padding-top:16px;border-top:1px solid var(--line)}
   .quick-out b{font:700 22px var(--mono)}
   .muted{color:var(--muted)}
   .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
@@ -214,7 +215,7 @@
     <!-- QUICK CONVERT -->
     <section class="card">
       <h2><span class="step">2</span>Quick convert</h2>
-      <p class="sub">Convert one event time.</p>
+      <p class="sub">Event time → ship time: when does it start on board?</p>
       <div class="row">
         <div><label for="qDate">Date</label><input id="qDate" type="date"></div>
         <div><label for="qTime">Time</label><input id="qTime" type="time" value="13:00"></div>
@@ -223,6 +224,18 @@
         <div><label for="qZone">Time zone of that time</label><select id="qZone" class="zoneSel"></select></div>
       </div>
       <div class="quick-out" id="qOut">—</div>
+
+      <h3 class="subh">Ship time → home time</h3>
+      <p class="sub" style="margin-bottom:10px">What time is it at home when it's this time on board?</p>
+      <div class="row">
+        <div><label for="rDate">Ship date</label><input id="rDate" type="date"></div>
+        <div><label for="rTime">Ship time</label><input id="rTime" type="time" value="15:00"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:3 1 200px"><label for="rZone">Home time zone</label><select id="rZone" class="zoneSel"></select></div>
+        <div style="flex:0 0 auto"><button id="rNow" title="Use the ship time right now">Now</button></div>
+      </div>
+      <div class="quick-out" id="rOut">—</div>
 
       <div style="margin-top:18px">
         <label for="fmt">Display</label>
@@ -301,13 +314,31 @@ const MONTHS=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov',
 const WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const WDL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const ZONES=[
-  ['America/New_York','US Eastern (ET)'],['America/Chicago','US Central (CT)'],['America/Denver','US Mountain (MT)'],
-  ['America/Phoenix','Arizona (no DST)'],['America/Los_Angeles','US Pacific (PT)'],['America/Anchorage','Alaska'],['Pacific/Honolulu','Hawaii'],
-  ['America/Halifax','Atlantic (AT)'],['America/Sao_Paulo','Brazil (BRT)'],['UTC','UTC / GMT'],['Europe/London','UK (GMT/BST)'],
-  ['Europe/Paris','Central Europe (CET)'],['Europe/Athens','Eastern Europe (EET)'],['Africa/Johannesburg','South Africa'],
-  ['Asia/Dubai','Gulf (GST)'],['Asia/Kolkata','India (IST)'],['Asia/Manila','Philippines (PHT)'],['Asia/Jakarta','Indonesia (WIB)'],
-  ['Asia/Tokyo','Japan (JST)'],['Australia/Sydney','Sydney (AET)'],['Pacific/Auckland','New Zealand']
+  // most used
+  ['America/New_York','US Eastern (ET)','Most used'],['America/Chicago','US Central (CT)','Most used'],['America/Denver','US Mountain (MT)','Most used'],
+  ['America/Los_Angeles','US Pacific (PT)','Most used'],['UTC','UTC / GMT','Most used'],['Europe/London','UK (GMT/BST)','Most used'],
+  ['Europe/Paris','Central Europe (CET)','Most used'],['Asia/Manila','Philippines (PHT)','Most used'],['Asia/Kolkata','India (IST)','Most used'],
+  ['Asia/Jakarta','Indonesia (WIB)','Most used'],
+  // Americas
+  ['America/Phoenix','Arizona (no DST)','Americas'],['America/Anchorage','Alaska','Americas'],['Pacific/Honolulu','Hawaii','Americas'],
+  ['America/Halifax','Atlantic Canada (AT)','Americas'],['America/Puerto_Rico','Puerto Rico / E. Caribbean (AST)','Americas'],
+  ['America/Jamaica','Jamaica','Americas'],['America/Mexico_City','Mexico (Mexico City)','Americas'],['America/Bogota','Colombia / Peru','Americas'],
+  ['America/Sao_Paulo','Brazil (BRT)','Americas'],['America/Argentina/Buenos_Aires','Argentina','Americas'],
+  // Europe & Africa
+  ['Europe/Lisbon','Portugal','Europe & Africa'],['Europe/Madrid','Spain','Europe & Africa'],['Europe/Rome','Italy','Europe & Africa'],
+  ['Europe/Belgrade','Serbia / Croatia','Europe & Africa'],['Europe/Warsaw','Poland','Europe & Africa'],
+  ['Europe/Athens','Greece / Eastern Europe (EET)','Europe & Africa'],['Europe/Bucharest','Romania / Bulgaria','Europe & Africa'],
+  ['Europe/Kiev','Ukraine','Europe & Africa'],['Europe/Istanbul','Turkey','Europe & Africa'],
+  ['Africa/Lagos','Nigeria','Europe & Africa'],['Africa/Johannesburg','South Africa','Europe & Africa'],['Africa/Nairobi','Kenya','Europe & Africa'],
+  // Asia & Pacific
+  ['Asia/Dubai','Gulf (GST)','Asia & Pacific'],['Asia/Karachi','Pakistan','Asia & Pacific'],['Asia/Colombo','Sri Lanka','Asia & Pacific'],
+  ['Asia/Kathmandu','Nepal','Asia & Pacific'],['Asia/Dhaka','Bangladesh','Asia & Pacific'],['Asia/Yangon','Myanmar','Asia & Pacific'],
+  ['Asia/Bangkok','Thailand','Asia & Pacific'],['Asia/Ho_Chi_Minh','Vietnam','Asia & Pacific'],['Asia/Kuala_Lumpur','Malaysia / Singapore','Asia & Pacific'],
+  ['Asia/Shanghai','China','Asia & Pacific'],['Asia/Seoul','Korea','Asia & Pacific'],['Asia/Tokyo','Japan (JST)','Asia & Pacific'],
+  ['Australia/Sydney','Sydney (AET)','Asia & Pacific'],['Pacific/Auckland','New Zealand','Asia & Pacific']
 ];
+// drop any zone this browser does not know (very old phones)
+for(let i=ZONES.length-1;i>=0;i--){ try{ new Intl.DateTimeFormat('en-US',{timeZone:ZONES[i][0]}); }catch(e){ ZONES.splice(i,1); } }
 const ABBR={ET:'America/New_York',EST:'America/New_York',EDT:'America/New_York',CT:'America/Chicago',CST:'America/Chicago',CDT:'America/Chicago',
   MT:'America/Denver',MST:'America/Denver',MDT:'America/Denver',PT:'America/Los_Angeles',PST:'America/Los_Angeles',PDT:'America/Los_Angeles',
   GMT:'UTC',UTC:'UTC',Z:'UTC',BST:'Europe/London',UK:'Europe/London',CET:'Europe/Paris',CEST:'Europe/Paris',EET:'Europe/Athens',
@@ -525,9 +556,11 @@ $('chg').value=store.get('chg','02:00');
 $('h24').checked=store.get('h24v2',true);
 $('hidePast').checked=store.get('hidePast',false);
 
-document.querySelectorAll('.zoneSel').forEach(sel=>{ sel.innerHTML=ZONES.map(([z,n])=>`<option value="${z}">${n}</option>`).join(''); });
-$('qZone').value=store.get('qZone','America/New_York');
-$('sZone').value=store.get('sZone','America/New_York');
+{ const groups=[...new Set(ZONES.map(x=>x[2]))];
+  const html=groups.map(g=>`<optgroup label="${g}">`+ZONES.filter(x=>x[2]===g).map(([z,n])=>`<option value="${z}">${n}</option>`).join('')+'</optgroup>').join('');
+  document.querySelectorAll('.zoneSel').forEach(sel=>{ sel.innerHTML=html; }); }
+$('qZone').value=store.get('qZone','America/New_York'); if(!$('qZone').value) $('qZone').value='America/New_York';
+$('sZone').value=store.get('sZone','America/New_York'); if(!$('sZone').value) $('sZone').value='America/New_York';
 $('sched').value=store.get('sched','');
 
 function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),1800);}
@@ -706,7 +739,7 @@ function renderQuick(){
   if(isNaN(s.off)){ $('qOut').textContent='Load a voyage plan first.'; return; }
   const sameDay=(s.y===y&&s.mo===m&&s.d===d);
   const src=new Date(Date.UTC(y,m-1,d));
-  const zl=ZONES.find(x=>x[0]===z)[1];
+  const zl=(ZONES.find(x=>x[0]===z)||[z,z])[1];
   $('qOut').innerHTML=`<div class="muted" style="font-size:13px">${fmtDate(y,m,d,src.getUTCDay(),true)} · ${fmtTime(h,mi,h24)} ${esc(zl)}</div>
     <b>${fmtTime(s.h,s.mi,h24)}</b> <span style="font-weight:600">ship time</span>
     <div>${fmtDate(s.y,s.mo,s.d,s.wd,true)} ${sameDay?'':'<span class="tag day">next/prev day</span>'} · ship UTC ${fmtOffset(s.off)}</div>
@@ -714,6 +747,37 @@ function renderQuick(){
     ${s.near?`<div class="msg warn">Within an hour of the ${s.near.date} clock change — double-check with the bridge.</div>`:''}`;
 }
 ['qDate','qTime','qZone'].forEach(id=>$(id).addEventListener('input',renderQuick));
+
+/* ---- ship time -> home time ---- */
+function wallInZone(utc,zone){ const t=new Date(utc+zoneOffsetMs(zone,utc)); return {y:t.getUTCFullYear(),mo:t.getUTCMonth()+1,d:t.getUTCDate(),h:t.getUTCHours(),mi:t.getUTCMinutes(),wd:t.getUTCDay()}; }
+function shipToUtc(y,mo,d,h,mi){
+  const base=Date.UTC(y,mo-1,d,h,mi);
+  const offs=[...new Set(voy.filter(e=>!isNaN(e.off)).map(e=>e.off))];
+  const ok=offs.map(o=>base-o*3600e3).filter(u=>shipOffsetAt(voy,chg(),u).off===(base-u)/3600e3).sort((a,b)=>a-b);
+  if(ok.length) return {utc:ok[0],twice:ok.length>1};
+  // time skipped by a clock change going forward: use the later offset
+  const u=base-shipOffsetAt(voy,chg(),base).off*3600e3; return {utc:u,skipped:true};
+}
+function renderReverse(){
+  const dv=$('rDate').value, tv=$('rTime').value, z=$('rZone').value; store.set('rZone',z);
+  if(!dv||!tv){ $('rOut').textContent='Pick a ship date and time.'; return; }
+  if(!voy.some(e=>!isNaN(e.off))){ $('rOut').textContent='Load a voyage plan first.'; return; }
+  const [y,m,d]=dv.split('-').map(Number), [h,mi]=tv.split(':').map(Number), h24=$('h24').checked;
+  const r=shipToUtc(y,m,d,h,mi), s=shipOffsetAt(voy,chg(),r.utc), w=wallInZone(r.utc,z);
+  const zl=(ZONES.find(x=>x[0]===z)||[z,z])[1], zoff=zoneOffsetMs(z,r.utc)/3600e3;
+  const diff=zoff-s.off, sameDay=(w.y===y&&w.mo===m&&w.d===d);
+  const ahead=diff===0?'same time as the ship':`${fmtOffset(Math.abs(diff)).replace(/^[+−]/,'')} hr ${diff>0?'ahead of':'behind'} the ship`;
+  $('rOut').innerHTML=`<div class="muted" style="font-size:13px">${fmtDate(y,m,d,new Date(Date.UTC(y,m-1,d)).getUTCDay(),true)} · ${fmtTime(h,mi,h24)} ship time (UTC ${fmtOffset(s.off)})</div>
+    <b>${fmtTime(w.h,w.mi,h24)}</b> <span style="font-weight:600">${esc(zl)}</span>
+    <div>${fmtDate(w.y,w.mo,w.d,w.wd,true)} ${sameDay?'':'<span class="tag day">'+(Date.UTC(w.y,w.mo-1,w.d)>Date.UTC(y,m-1,d)?'next day':'previous day')+'</span>'} · ${ahead}</div>
+    ${s.range!=='in'?'<div class="msg warn">This date is outside the loaded voyage plan.</div>':''}
+    ${r.twice?'<div class="msg warn">Clocks go back tonight, so this ship time happens twice. Showing the first one.</div>':''}
+    ${r.skipped?'<div class="msg warn">Clocks go forward tonight, so this ship time is skipped.</div>':''}`;
+}
+['rDate','rTime','rZone'].forEach(id=>$(id).addEventListener('input',renderReverse));
+$('rNow').onclick=()=>{ const s=shipLocal(voy,chg(),Date.now()); if(isNaN(s.off)) return; $('rDate').value=ymd(s.y,s.mo,s.d); $('rTime').value=pad(s.h)+':'+pad(s.mi); renderReverse(); };
+$('rZone').value=store.get('rZone','Asia/Manila'); if(!$('rZone').value) $('rZone').value='Asia/Manila';
+(function(){ const s=shipLocal(voy,chg(),Date.now()); const n=isNaN(s.off)?null:s; const t=new Date(); $('rDate').value=n?ymd(n.y,n.mo,n.d):ymd(t.getFullYear(),t.getMonth()+1,t.getDate()); })();
 (function(){ const n=new Date(); $('qDate').value=ymd(n.getFullYear(),n.getMonth()+1,n.getDate()); })();
 
 /* ---- schedule ---- */
@@ -726,7 +790,7 @@ $('rShip').addEventListener('input',()=>{store.set('ship',$('rShip').value); ren
 $('incNet').onchange=()=>{store.set('incNet',$('incNet').checked); renderReport();};
 
 const zl=n=>ZONES.find(x=>x[0]===n)?.[1]||n;
-const SHORTZ={'America/New_York':'ET','America/Chicago':'CT','America/Denver':'MT','America/Phoenix':'MST','America/Los_Angeles':'PT','America/Anchorage':'AKT','Pacific/Honolulu':'HT','America/Halifax':'AT','America/Sao_Paulo':'BRT','UTC':'UTC','Europe/London':'UK','Europe/Paris':'CET','Europe/Athens':'EET','Africa/Johannesburg':'SAST','Asia/Dubai':'GST','Asia/Kolkata':'IST','Asia/Manila':'PHT','Asia/Jakarta':'WIB','Asia/Tokyo':'JST','Australia/Sydney':'AET','Pacific/Auckland':'NZT'};
+const SHORTZ={'America/New_York':'ET','America/Chicago':'CT','America/Denver':'MT','America/Phoenix':'MST','America/Los_Angeles':'PT','America/Anchorage':'AKT','Pacific/Honolulu':'HT','America/Halifax':'AT','America/Sao_Paulo':'BRT','UTC':'UTC','Europe/London':'UK','Europe/Paris':'CET','Europe/Athens':'EET','Africa/Johannesburg':'SAST','Asia/Dubai':'GST','Asia/Kolkata':'IST','Asia/Manila':'PHT','Asia/Jakarta':'WIB','Asia/Tokyo':'JST','Australia/Sydney':'AET','Pacific/Auckland':'NZT','America/Puerto_Rico':'AST','America/Mexico_City':'CST (MX)','Asia/Bangkok':'ICT','Asia/Shanghai':'CST (CN)','Asia/Seoul':'KST','Europe/Istanbul':'TRT','Africa/Nairobi':'EAT','Africa/Lagos':'WAT'};
 const shortZ=z=>SHORTZ[z]||z;
 const MON=m=>MONTHS[m-1].replace(/^./,c=>c.toUpperCase());
 function fmtStamp(y,mo,d,wd,h,mi,h24){ return `${WD[wd]} ${pad(d)}-${MON(mo)} ${fmtTime(h,mi,h24)}`; }
@@ -1005,7 +1069,7 @@ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostnam
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-function renderAll(){ renderVoy(); renderNow(); renderQuick(); convertSchedule(true); }
+function renderAll(){ renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); }
 renderAll();
 loadSiteData();
 setInterval(renderNow,20000);
