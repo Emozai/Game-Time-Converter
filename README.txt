@@ -1,5 +1,5 @@
-GAME TIME CONVERTER — Norwegian Escape · Technical Entertainment Team
-=====================================================================
+GAME TIME CONVERTER
+===================
 
 WHAT'S IN THIS FOLDER
   index.html        The website (open this page)

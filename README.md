@@ -11,6 +11,4 @@ Converts NFL and live-event kickoff times into **ship time** for the Norwegian E
 
 Everyone sees the update when they refresh the page.
 
-*Norwegian Escape · Technical Entertainment Team*
-
 `lib/` contains PDF.js by Mozilla (Apache License 2.0).
