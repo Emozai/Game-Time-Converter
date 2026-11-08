@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2545">
+<meta name="description" content="Convert game and TV event times into ship time using the ship's voyage plan.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Game Time">
 <script>try{var t=localStorage.getItem('gtc_theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <title>Game Time Converter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,7 +44,30 @@
   .hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
-  header{background:var(--navy);color:#fff;padding:22px 20px 18px}
+  header{background:var(--navy);color:#fff;padding:calc(22px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 18px calc(20px + env(safe-area-inset-left))}
+  main{padding-left:calc(20px + env(safe-area-inset-left))!important;padding-right:calc(20px + env(safe-area-inset-right))!important;padding-bottom:calc(60px + env(safe-area-inset-bottom))!important}
+  .hdr-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .install{display:none;align-items:center;gap:6px;background:#f5c542;color:#0b2545;border:0;border-radius:999px;padding:7px 14px;font:700 13px Inter,system-ui,sans-serif;cursor:pointer}
+  .install.show{display:flex}
+  .sheet-bg{position:fixed;inset:0;background:rgba(5,12,25,.55);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .sheet-bg.show{display:flex}
+  .sheet{background:var(--card);color:var(--ink);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px 20px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.3)}
+  .sheet h3{margin:0 0 4px;font-size:18px}
+  .sheet ol{margin:12px 0 16px;padding-left:22px;line-height:1.9}
+  .sheet .ico{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:700;vertical-align:middle}
+  @media (max-width:600px){
+    h1{font-size:21px}
+    header p{font-size:13px}
+    .hdr-right{align-items:stretch;width:100%}
+    .now{width:100%}
+    .now div{flex:1;min-width:0}
+    .now b{font-size:18px}
+    .card{padding:14px}
+    .grid2{gap:12px}
+    .row>.btns{flex:1 1 100%!important}
+    .row>*{flex-basis:100%}
+    .row>.toggle{flex-basis:auto}
+  }
   header .wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
   h1{margin:0;font-size:24px;letter-spacing:-.01em}
   header p{margin:4px 0 0;color:#b9c8dc;font-size:14px}
@@ -52,6 +84,8 @@
   .step{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-right:8px;vertical-align:1px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:860px){.grid2{grid-template-columns:1fr}}
+  .grid2>*,.card{min-width:0}
+  .voy input[type=date]{min-width:0;max-width:150px}
   label{font-size:12.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px}
   input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
   textarea{font:13px/1.45 var(--mono);min-height:170px;resize:vertical}
@@ -123,9 +157,12 @@
       <p>Turn kickoff times from any time zone into <b>ship time</b>, using the ship's voyage plan.</p>
     </div>
     <div class="hdr-right">
+    <div class="hdr-btns">
+    <button class="install" id="installBtn">📲 Install app</button>
     <button class="theme" id="themeBtn" role="switch" aria-checked="false" title="Switch light / dark">
       <span class="track"><span class="knob" id="themeKnob">☀️</span></span><span id="themeLbl">Light</span>
     </button>
+    </div>
     <div class="now">
       <div><small>Ship time now (voyage plan)</small><b id="nowShip">--:--</b><span id="nowShipSub"></span></div>
       <div><small>This device's clock</small><b id="nowDev">--:--</b><span id="nowDevSub"></span></div>
@@ -231,6 +268,30 @@
   </section>
 </main>
 <div class="toast" id="toast"></div>
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet" role="dialog" aria-labelledby="sheetTitle">
+    <h3 id="sheetTitle">Install Game Time on your phone</h3>
+    <div class="muted" style="font-size:13.5px">It opens full-screen from your home screen and works without internet.</div>
+    <div id="sheetIos">
+      <b style="display:block;margin-top:14px">iPhone / iPad (Safari)</b>
+      <ol>
+        <li>Tap the <span class="ico">⬆︎</span> <b>Share</b> button in Safari's toolbar.</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+        <li>Tap <b>Add</b>. The Game Time icon appears on your home screen.</li>
+      </ol>
+      <div class="hint" style="margin:-6px 0 14px">Using Chrome on iPhone? Tap <b>⋯</b> or the share icon, then <b>Add to Home Screen</b>.</div>
+    </div>
+    <div id="sheetAndroid">
+      <b style="display:block;margin-top:14px">Android (Chrome / Samsung Internet)</b>
+      <ol>
+        <li>Tap the <span class="ico">⋮</span> menu (top right in Chrome, bottom in Samsung Internet).</li>
+        <li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li>
+        <li>Tap <b>Install</b>.</li>
+      </ol>
+    </div>
+    <button class="primary" id="sheetClose" style="width:100%">Got it</button>
+  </div>
+</div>
 
 <script>
 /* ================= CORE LOGIC (no DOM) ================= */
@@ -916,6 +977,31 @@ $('themeBtn').onclick=()=>{
 };
 if(darkMQ&&darkMQ.addEventListener) darkMQ.addEventListener('change',showTheme);
 showTheme();
+
+/* ---- install as an app (Android + iPhone) ---- */
+const standalone=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+const ua=navigator.userAgent||'';
+const isIOS=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isAndroid=/Android/.test(ua);
+let installEvt=null;
+function openSheet(){
+  $('sheetIos').style.display=(isIOS||!isAndroid)?'':'none';
+  $('sheetAndroid').style.display=(isAndroid||!isIOS)?'':'none';
+  $('sheetBg').classList.add('show');
+}
+$('sheetClose').onclick=()=>$('sheetBg').classList.remove('show');
+$('sheetBg').addEventListener('click',e=>{ if(e.target===$('sheetBg')) $('sheetBg').classList.remove('show'); });
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; if(!standalone) $('installBtn').classList.add('show'); });
+window.addEventListener('appinstalled',()=>{ installEvt=null; $('installBtn').classList.remove('show'); toast('Installed — open Game Time from your home screen'); });
+$('installBtn').onclick=async()=>{
+  if(installEvt){ installEvt.prompt(); try{ await installEvt.userChoice; }catch(e){} installEvt=null; $('installBtn').classList.remove('show'); }
+  else openSheet();
+};
+// iPhone and other phones never fire the install prompt: show the button with instructions instead
+if(!standalone&&(isIOS||isAndroid)&&!window.claude) $('installBtn').classList.add('show');
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 
 function renderAll(){ renderVoy(); renderNow(); renderQuick(); convertSchedule(true); }
 renderAll();
