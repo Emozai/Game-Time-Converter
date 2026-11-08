@@ -1,6 +1,6 @@
 /* Game Time Converter — offline support.
    Bump VERSION whenever index.html changes so phones pick up the update. */
-const VERSION = 'gtc-v7';
+const VERSION = 'gtc-v8';
 const CORE = [
   './',
   './index.html',
@@ -17,6 +17,8 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
+  // save the PDF reader for offline use, without holding up the app
+  caches.open(VERSION).then(c => c.addAll(['./lib/pdf.min.mjs', './lib/pdf.worker.min.mjs'])).catch(() => {});
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))

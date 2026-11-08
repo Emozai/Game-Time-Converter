@@ -762,36 +762,51 @@ $('voyParse').onclick=()=>{
 };
 
 /* ---- PDF loading via pdf.js ---- */
-let pdfjsReady=null;
-function loadPdfJs(){
-  if(pdfjsReady) return pdfjsReady;
-  pdfjsReady=(async()=>{
-    try{ // bundled copy (works offline on the ship network)
-      const lib=await import(new URL('lib/pdf.min.mjs',location.href).href);
-      lib.GlobalWorkerOptions.workerSrc=new URL('lib/pdf.worker.min.mjs',location.href).href;
-      return lib;
-    }catch(e){ return await loadPdfJsCdn(); }
-  })().catch(e=>{pdfjsReady=null;throw e;});
-  return pdfjsReady;
+/* PDF reader: bundled copy first (works offline), a fresh retry, then a backup copy from the web */
+let pdfLocal=null, pdfCdn=null;
+const absUrl=(path,bust)=>{ const u=new URL(path,location.href); if(bust) u.searchParams.set('r',String(Date.now())); return u.href; };
+function loadPdfLocal(bust){
+  if(pdfLocal&&!bust) return pdfLocal;
+  pdfLocal=(async()=>{
+    const lib=await import(absUrl('lib/pdf.min.mjs',bust));
+    lib.GlobalWorkerOptions.workerSrc=absUrl('lib/pdf.worker.min.mjs',bust);
+    return lib;
+  })().catch(e=>{ pdfLocal=null; throw e; });
+  return pdfLocal;
 }
-function loadPdfJsCdn(){
-  return new Promise((res,rej)=>{
+function loadPdfCdn(){
+  if(pdfCdn) return pdfCdn;
+  pdfCdn=new Promise((res,rej)=>{
     const s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
     s.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(window.pdfjsLib);}catch(e){rej(e);} };
-    s.onerror=()=>rej(new Error('PDF reader could not load'));
+    s.onerror=()=>rej(new Error('backup PDF reader could not load'));
     document.head.appendChild(s);
-  });
+  }).catch(e=>{ pdfCdn=null; throw e; });
+  return pdfCdn;
+}
+async function readPdfWith(lib,bytes){
+  const task=lib.getDocument({data:bytes,isEvalSupported:false});
+  try{
+    const pdf=await task.promise; const items=[];
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p); const tc=await page.getTextContent();
+      for(const it of tc.items){ const s=(it.str||'').trim(); if(s) items.push({s,x:it.transform[4],y:it.transform[5],w:it.width||0,p}); }
+    }
+    return items;
+  } finally { try{ task.destroy(); }catch(e){} }
 }
 async function pdfToItems(file){
-  const lib=await loadPdfJs();
-  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
-  const items=[];
-  for(let p=1;p<=pdf.numPages;p++){
-    const page=await pdf.getPage(p); const tc=await page.getTextContent();
-    for(const it of tc.items){ const s=(it.str||'').trim(); if(s) items.push({s,x:it.transform[4],y:it.transform[5],w:it.width||0,p}); }
+  const buf=await file.arrayBuffer(); let last=null;
+  const attempts=[()=>loadPdfLocal(false), ()=>loadPdfLocal(true), ()=>loadPdfCdn()];
+  for(let i=0;i<attempts.length;i++){
+    try{
+      if(i>0) setMsg('voyMsg','warn',i===1?'Reading the PDF… trying again.':'Reading the PDF… using the backup reader.');
+      const lib=await attempts[i]();
+      return await readPdfWith(lib,new Uint8Array(buf.slice(0)));
+    }catch(e){ last=e; }
   }
-  return items;
+  throw last||new Error('PDF reader could not load');
 }
 function itemsToLines(items){
   const lines=[]; const sorted=items.slice().sort((a,b)=>a.p-b.p||b.y-a.y||a.x-b.x);
@@ -836,7 +851,7 @@ async function handleFile(file){
     $('voyText').value=text;
     applyVoyage(list,(vn?'Voyage '+vn[1]+' · ':'')+file.name,text);
   }catch(err){
-    setMsg('voyMsg','bad','Couldn’t read the PDF here ('+esc(err.message||err)+'). Open the PDF, select all, copy, and paste the text under “paste the voyage plan text”.');
+    setMsg('voyMsg','bad','Couldn’t read the PDF on this connection. Check the internet and try again, or open the PDF, select all, copy, and paste the text under “paste the voyage plan text”. <span class="muted">('+esc(err.message||err)+')</span>');
   }
 }
 $('drop').onclick=()=>$('pdfFile').click();
