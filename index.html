@@ -224,7 +224,6 @@
 </header>
 
 <main class="wrap">
-  <div id="adminBar" class="adminbar admin-only">Admin mode: you can load voyage plans and publish schedules. <a href="#" id="exitAdmin">Switch to crew view</a></div>
   <div id="chgBanner" class="banner" hidden></div>
   <div id="clockWarn" class="msg warn admin-only" style="margin:0 0 16px"></div>
 
@@ -1173,16 +1172,9 @@ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostnam
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-/* ---- crew view / admin view ---- */
-function setAdmin(on){
-  try{ localStorage.setItem('gtc_admin',on?'1':'0'); }catch(e){}
-  document.body.classList.toggle('crew',!on);
-}
-let adminOn=false; try{ adminOn=localStorage.getItem('gtc_admin')==='1'; }catch(e){}
-if(location.hash==='#admin') adminOn=true;
-setAdmin(adminOn);
-window.addEventListener('hashchange',()=>{ if(location.hash==='#admin'){ setAdmin(true); renderAll(); } });
-$('exitAdmin').onclick=e=>{ e.preventDefault(); setAdmin(false); try{ history.replaceState(null,'',location.pathname); }catch(_){ } renderAll(); window.scrollTo(0,0); };
+/* one view for everyone (no crew/admin split) */
+try{ localStorage.removeItem('gtc_admin'); }catch(e){}
+document.body.classList.remove('crew');
 
 function eventLabel(x){
   const names=lastResults.names||[], ex=x.r.extras.map(e=>e.val);
