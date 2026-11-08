@@ -145,6 +145,7 @@
   .notes{margin-top:14px;font-size:13.5px}
   .notes b{display:block;margin-bottom:4px}
   .notes ul{margin:0;padding-left:18px;color:var(--muted)}
+  .credit{text-align:center;color:var(--muted);font-size:12.5px;padding:0 20px calc(28px + env(safe-area-inset-bottom));margin-top:-36px}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
   .toast.show{opacity:1}
 </style>
@@ -267,6 +268,7 @@
     <div class="notes" id="resNotes"></div>
   </section>
 </main>
+<footer class="credit">Made by JVL Broadcast</footer>
 <div class="toast" id="toast"></div>
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet" role="dialog" aria-labelledby="sheetTitle">

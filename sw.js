@@ -1,6 +1,6 @@
 /* Game Time Converter — offline support.
    Bump VERSION whenever index.html changes so phones pick up the update. */
-const VERSION = 'gtc-v1';
+const VERSION = 'gtc-v2';
 const CORE = [
   './',
   './index.html',
