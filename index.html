@@ -102,6 +102,9 @@
   .ampm{font:700 13px var(--mono);color:#b9c8dc;margin-left:6px;align-self:flex-end;padding-bottom:6px}
   .shipclock .sub{font-size:12.5px;color:#cfdbea;margin-top:6px}
   .shipclock .sub.dim{color:#9fb1c8;margin-top:2px}
+  .srcsw{display:inline-flex;margin-top:8px;background:rgba(0,0,0,.25);border-radius:999px;padding:3px}
+  .srcsw button{border:0;background:transparent;color:#cfdbea;font:600 12px Inter,system-ui,sans-serif;padding:5px 11px;border-radius:999px;cursor:pointer;min-height:28px}
+  .srcsw button[aria-pressed="true"]{background:#F5C542;color:#0b2545}
   .shipclock .sub b{font:700 12.5px var(--mono);color:#fff}
   .now{display:flex;gap:18px;flex-wrap:wrap}
   .now div{background:rgba(255,255,255,.08);border-radius:10px;padding:8px 14px;min-width:150px}
@@ -249,7 +252,10 @@
         <span class="fd" id="f0">0</span><span class="fd" id="f1">0</span><i>:</i><span class="fd" id="f2">0</span><span class="fd" id="f3">0</span><i class="sm">:</i><span class="fd sm" id="f4">0</span><span class="fd sm" id="f5">0</span><span class="ampm" id="fAp"></span>
       </div>
       <div class="sub"><span id="nowShipSub"></span></div>
-      <div class="sub dim">Your phone: <b id="nowDev">--:--</b> <span id="nowDevSub"></span></div>
+      <div class="sub dim" id="nowCompare"><span id="nowDev"></span> <span id="nowDevSub"></span></div>
+      <div class="srcsw" role="group" aria-label="Ship time comes from">
+        <button type="button" id="srcDevice" aria-pressed="true">This device</button><button type="button" id="srcPlan" aria-pressed="false">Voyage plan</button>
+      </div>
     </div>
     </div>
   </div>
@@ -257,7 +263,7 @@
 
 <main class="wrap">
   <div id="chgBanner" class="banner" hidden></div>
-  <div id="clockWarn" class="msg warn admin-only" style="margin:0 0 16px"></div>
+  <div id="clockWarn" class="msg warn" style="margin:0 0 16px"></div>
 
   <section class="card next" id="nextCard" hidden>
     <div id="nextBody"></div>
@@ -495,7 +501,25 @@ function voyageTransitions(voy,chg){
   }
   return {v,tr};
 }
+/* Where "now" comes from: 'device' = the phone/computer clock (the ship sets it from its position),
+   'plan' = the voyage plan only. Default: device. */
+let TIME_SOURCE='device';
+try{ const t=localStorage.getItem('gtc_tsrc'); if(t==='plan'||t==='device') TIME_SOURCE=t; }catch(e){}
+function deviceOffsetAt(ms){ return -new Date(ms).getTimezoneOffset()/60; }
+function deviceShift(voy,chg){
+  // difference between this device's clock and the voyage plan right now (0 when they agree)
+  const now=Date.now(), p=planOffsetAt(voy,chg,now);
+  if(isNaN(p.off)||p.range!=='in') return null;
+  return deviceOffsetAt(now)-p.off;
+}
 function shipOffsetAt(voy,chg,utcMs){
+  const p=planOffsetAt(voy,chg,utcMs);
+  if(TIME_SOURCE!=='device') return p;
+  const sh=deviceShift(voy,chg);
+  if(sh===null){ return {off:deviceOffsetAt(utcMs),range:'in',near:null,device:true}; }   // no plan for now: device time zone only
+  return {...p,off:p.off+sh,shift:sh,device:true};                                          // plan's future changes, anchored to the device clock
+}
+function planOffsetAt(voy,chg,utcMs){
   const {v,tr}=voyageTransitions(voy,chg);
   if(!v.length) return {off:NaN,range:'none'};
   let off=v[0].off;
@@ -835,16 +859,31 @@ function renderNow(){
   const h24=$('h24').checked, now=Date.now();
   const s=shipLocal(voy,chg(),now);
   if(isNaN(s.off)){ $('nowShipSub').textContent='No voyage plan loaded'; }
-  else { $('nowShipSub').textContent=fmtDate(s.y,s.mo,s.d,s.wd,true)+' · UTC '+fmtOffset(s.off); }
-  const d=new Date(), devOff=-d.getTimezoneOffset()/60;
-  $('nowDev').textContent=fmtTime(d.getHours(),d.getMinutes(),h24);
-  const dd=isNaN(s.off)?0:devOff-s.off;
-  $('nowDevSub').textContent=isNaN(s.off)?'':(dd===0?'(matches ship time)':`(${fmtOffset(Math.abs(dd)).replace(/^[+−]/,'')} h ${dd>0?'ahead of':'behind'} ship time)`);
+  else { $('nowShipSub').textContent=fmtDate(s.y,s.mo,s.d,s.wd,true)+' · UTC '+fmtOffset(s.off)+(TIME_SOURCE==='device'?' · from this device':' · from voyage plan'); }
+  const d=new Date(), devOff=-d.getTimezoneOffset()/60, p=planOffsetAt(voy,chg(),now);
+  const hrs=x=>fmtOffset(Math.abs(x)).replace(/^[+−]/,'')+' h';
+  if(TIME_SOURCE==='device'){
+    if(isNaN(p.off)||p.range!=='in'){ $('nowDev').textContent='No voyage plan for today:'; $('nowDevSub').textContent='using this device\u2019s time zone'; }
+    else { const dd=devOff-p.off; $('nowDev').textContent=`Voyage plan: UTC ${fmtOffset(p.off)}`; $('nowDevSub').textContent=dd===0?'(matches this device)':`(this device is ${hrs(dd)} ${dd>0?'ahead':'behind'})`; }
+  } else {
+    const dd=isNaN(s.off)?0:devOff-s.off;
+    $('nowDev').textContent='This device: '+fmtTime(d.getHours(),d.getMinutes(),h24);
+    $('nowDevSub').textContent=isNaN(s.off)?'':(dd===0?'(matches ship time)':`(${hrs(dd)} ${dd>0?'ahead of':'behind'} ship time)`);
+  }
+  $('srcDevice').setAttribute('aria-pressed',String(TIME_SOURCE==='device')); $('srcPlan').setAttribute('aria-pressed',String(TIME_SOURCE==='plan'));
   let w='';
   if(!isNaN(s.off)&&s.range!=='in') w=`Right now is ${s.range==='before'?'before the start':'after the end'} of the loaded voyage plan, so ship time can’t be trusted. Load the current voyage plan PDF.`;
-  else if(!isNaN(s.off)&&devOff!==s.off) w=`This device is set to UTC ${fmtOffset(devOff)}, but the voyage plan puts the ship at UTC ${fmtOffset(s.off)} right now. All conversions below use the <b>voyage plan</b>. (If the ship’s clocks were changed at a different hour, adjust “Clocks change at”.)`;
+  else if(TIME_SOURCE==='plan'&&!isNaN(s.off)&&devOff!==s.off) w=`This device is set to UTC ${fmtOffset(devOff)}, but the voyage plan puts the ship at UTC ${fmtOffset(s.off)} right now. Times on this page follow the <b>voyage plan</b>. Tap <b>This device</b> in the clock to follow your own clock.`;
+  else if(TIME_SOURCE==='device'&&!isNaN(p.off)&&p.range==='in'&&devOff!==p.off) w=`Times on this page follow <b>this device’s clock</b> (UTC ${fmtOffset(devOff)}), which is ${hrs(devOff-p.off)} ${devOff>p.off?'ahead of':'behind'} the voyage plan (UTC ${fmtOffset(p.off)}). If this phone isn’t on ship time (for example it still shows home time), tap <b>Voyage plan</b> in the clock.`;
   $('clockWarn').innerHTML=w; $('clockWarn').style.display=w?'':'none';
 }
+
+function setSource(t){ TIME_SOURCE=t; try{ localStorage.setItem('gtc_tsrc',t); }catch(e){} lastDigits=''; renderAll(); }
+$('srcDevice').onclick=()=>setSource('device');
+$('srcPlan').onclick=()=>setSource('plan');
+// device clock or time zone changed (ship clock change, travel): refresh everything
+let lastDevOff=deviceOffsetAt(Date.now());
+setInterval(()=>{ const o=deviceOffsetAt(Date.now()); if(o!==lastDevOff){ lastDevOff=o; renderAll(); } },15000);
 
 /* ---- flip clock, every second ---- */
 let lastDigits='';
@@ -884,7 +923,9 @@ function renderQuick(){
 function wallInZone(utc,zone){ const t=new Date(utc+zoneOffsetMs(zone,utc)); return {y:t.getUTCFullYear(),mo:t.getUTCMonth()+1,d:t.getUTCDate(),h:t.getUTCHours(),mi:t.getUTCMinutes(),wd:t.getUTCDay()}; }
 function shipToUtc(y,mo,d,h,mi){
   const base=Date.UTC(y,mo-1,d,h,mi);
-  const offs=[...new Set(voy.filter(e=>!isNaN(e.off)).map(e=>e.off))];
+  const sh=TIME_SOURCE==='device'?(deviceShift(voy,chg())||0):0;
+  let offs=[...new Set(voy.filter(e=>!isNaN(e.off)).map(e=>e.off+sh))];
+  if(TIME_SOURCE==='device') offs=[...new Set(offs.concat([deviceOffsetAt(base),deviceOffsetAt(base-86400e3),deviceOffsetAt(base+86400e3)]))];
   const ok=offs.map(o=>base-o*3600e3).filter(u=>shipOffsetAt(voy,chg(),u).off===(base-u)/3600e3).sort((a,b)=>a-b);
   if(ok.length) return {utc:ok[0],twice:ok.length>1};
   // time skipped by a clock change going forward: use the later offset
@@ -893,7 +934,7 @@ function shipToUtc(y,mo,d,h,mi){
 function renderReverse(){
   const dv=$('rDate').value, tv=$('rTime').value, z=$('rZone').value; store.set('rZone',z);
   if(!dv||!tv){ $('rOut').textContent='Pick a ship date and time.'; return; }
-  if(!voy.some(e=>!isNaN(e.off))){ $('rOut').textContent='Load a voyage plan first.'; return; }
+  if(TIME_SOURCE==='plan'&&!voy.some(e=>!isNaN(e.off))){ $('rOut').textContent='Load a voyage plan first.'; return; }
   const [y,m,d]=dv.split('-').map(Number), [h,mi]=tv.split(':').map(Number), h24=$('h24').checked;
   const r=shipToUtc(y,m,d,h,mi), s=shipOffsetAt(voy,chg(),r.utc), w=wallInZone(r.utc,z);
   const zl=(ZONES.find(x=>x[0]===z)||[z,z])[1], zoff=zoneOffsetMs(z,r.utc)/3600e3;
@@ -932,7 +973,7 @@ const offTxt=v=>isNaN(v)?'':(v===0?'0':(v>0?'+':'-')+Math.abs(v));   // ASCII fo
 function convertSchedule(auto){
   const text=$('sched').value; store.set('sched',text);
   if(!text.trim()){ $('resCard').hidden=true; setMsg('sMsg','',''); lastResults={}; return; }
-  if(!voy.some(e=>!isNaN(e.off))){ $('resCard').hidden=true; lastResults={}; setMsg('sMsg','warn','Load a voyage plan in step 1 to convert these times.'); return; }
+  if(TIME_SOURCE==='plan'&&!voy.some(e=>!isNaN(e.off))){ $('resCard').hidden=true; lastResults={}; setMsg('sMsg','warn','Load a voyage plan in step 1 to convert these times.'); return; }
   const parsed=parseSchedule(text);
   const rowZones=[...new Set(parsed.rows.filter(r=>!r.time.tbd).map(r=>r.time.zone||''))];
   const rowZone=rowZones.length===1&&rowZones[0]?rowZones[0]:null;
