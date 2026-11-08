@@ -89,6 +89,7 @@
   .toggle{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);font-weight:500;margin:0}
   .toggle input{width:auto}
   .results td{white-space:nowrap}
+  .results td.wrap{white-space:normal;min-width:240px;font-size:13px;color:var(--muted)}
   .results td.in{background:var(--accent-soft)}
   .results td.mono{font-family:var(--mono);font-size:13.5px;white-space:nowrap}
   .results td.shipc{font:700 14.5px var(--mono);white-space:nowrap}
@@ -178,7 +179,7 @@
   <!-- SCHEDULE -->
   <section class="card">
     <h2><span class="step">3</span>Paste the game schedule</h2>
-    <p class="sub">Paste straight from a spreadsheet or website. Each line needs a date (11/08/2026, 2026-11-08 or Nov 8) and a time (1:00 PM or 13:00). A header row such as <i>Time (ET)</i> sets the time zone automatically.</p>
+    <p class="sub">Paste a game schedule or a TV channel listing straight from a spreadsheet, email or website. Each line needs a date (11/08/2026, 2026-11-08 or Nov 8) and a time (1:00 PM or 13:00); start and end times like <i>11/07/2026 01:00 GMT</i> work too. A header such as <i>Time (ET)</i>, or a zone written after the times (GMT, ET…), sets the time zone automatically.</p>
     <div class="row" style="margin-bottom:10px">
       <div style="flex:0 1 320px"><label for="sZone">Schedule times are in</label><select id="sZone" class="zoneSel"></select></div>
       <div class="btns" style="flex:0 0 auto"><button class="primary" id="convert">Convert to ship time</button><button id="clearS">Clear</button></div>
@@ -192,7 +193,7 @@
     <div class="row" style="margin-bottom:12px">
       <div style="flex:3 1 380px"><label for="rTitle">Report title</label><input id="rTitle"></div>
       <div style="flex:1 1 180px"><label for="rShip">Ship</label><input id="rShip"></div>
-      <div style="flex:0 0 auto"><label class="toggle" style="margin-bottom:9px"><input type="checkbox" id="incNet"> Include network column</label></div>
+      <div style="flex:0 0 auto"><label class="toggle" id="incNetWrap" style="margin-bottom:9px"><input type="checkbox" id="incNet"> Include network column</label></div>
     </div>
     <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="flex:1 1 auto">
@@ -348,7 +349,16 @@ function matchTime(s){
   if(h>23||mi>59) return null;
   const z=m[4]?ABBR[m[4].toUpperCase()]:null;
   if(m[4]&&!z) return null;
-  return {h,mi,zone:z};
+  return {h,mi,zone:z,abbr:m[4]?m[4].toUpperCase():null};
+}
+/* "11/07/2026 01:00 GMT", "Nov 8, 2026 1:00 PM", "2026-11-08T13:00" */
+function matchDateTime(s){
+  s=s.trim();
+  const m=s.match(/^(.*?\d)\s*(?:,|\s|T|@|\bat\b)\s*(\d{1,2}(?::\d{2})?\s*(?:[ap]\.?m\.?)?\s*\(?[A-Z]{0,4}\)?)$/i);
+  if(!m) return null;
+  const d=matchDate(m[1]); if(!d) return null;
+  const t=matchTime(m[2]); if(!t) return null;
+  return {date:d,time:t};
 }
 function zoneFromHeader(text){
   const m=text.match(/\(\s*([A-Z]{2,4})\s*\)/); if(m&&ABBR[m[1].toUpperCase()]) return ABBR[m[1].toUpperCase()];
@@ -377,29 +387,39 @@ function parseSchedule(text){
         fields=[dm[0],tm[0],...(rest?[rest]:[])];
       } else {
         if(!header&&/time/i.test(line)) headerZone=zoneFromHeader(line)||headerZone;
+        if(/:\s*$/.test(line.trim())) continue;
         if(line.trim().length<40&&!/\d{1,2}:\d{2}/.test(line)) group=line.trim();
         else skipped.push(line.trim());
         continue;
       }
     }
-    let di=-1, ti=-1, dt=null, tt=null;
-    fields.forEach((f,i)=>{ if(di<0){const x=matchDate(f); if(x){di=i;dt=x;return;}} if(ti<0){const x=matchTime(f); if(x){ti=i;tt=x;}} });
-    if(di<0&&ti<0){
-      if(fields.some(f=>/time/i.test(f))&&fields.length>=2){ header=fields; headerZone=zoneFromHeader(fields.join(' '))||headerZone; }
-      else if(fields.join(' ').trim().length<40) group=fields.join(' ').trim();
-      else skipped.push(line.trim());
+    let start=null, end=null, dOnly=null; const tList=[], used=new Set();
+    fields.forEach((f,i)=>{
+      const dtm=matchDateTime(f); if(dtm){ if(!start) start=dtm; else if(!end) end=dtm; used.add(i); return; }
+      if(!dOnly){ const d=matchDate(f); if(d){ dOnly=d; used.add(i); return; } }
+      const t=matchTime(f); if(t&&tList.length<2){ tList.push(t); used.add(i); }
+    });
+    let spare=tList;                       // time-only fields not used for the start
+    if(!start&&dOnly&&tList[0]){ start={date:dOnly,time:tList[0]}; spare=tList.slice(1); }
+    if(start&&!end&&spare[0]&&!spare[0].tbd) end={date:start.date,time:spare[0],sameDay:true};
+    if(!start){
+      if(!dOnly&&!tList.length){
+        if(fields.some(f=>/time/i.test(f))&&fields.length>=2){ header=fields; headerZone=zoneFromHeader(fields.join(' '))||headerZone; }
+        else if(/:\s*$/.test(line.trim())) {}  // intro line such as "The following events are scheduled to air:"
+        else if(fields.join(' ').trim().length<40) group=fields.join(' ').trim();
+        else skipped.push(line.trim());
+      } else skipped.push(line.trim());
       continue;
     }
-    if(di<0||ti<0){ skipped.push(line.trim()); continue; }
     const extras=[];
     fields.forEach((f,i)=>{
-      if(i===di||i===ti) return;
+      if(used.has(i)) return;
       if(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?$/i.test(f)) return;
       const name=header&&header.length===fields.length?header[i]:null;
       if(name&&/^(day|date)$/i.test(name)) return;
       extras.push({name,val:f});
     });
-    rows.push({date:dt,time:tt,extras,group,raw:line.trim()});
+    rows.push({date:start.date,time:start.time,end,extras,group,raw:line.trim()});
   }
   return {rows,header,headerZone,skipped};
 }
@@ -635,7 +655,12 @@ function convertSchedule(auto){
   if(!text.trim()){ $('resCard').hidden=true; setMsg('sMsg','',''); lastResults={}; return; }
   if(!voy.some(e=>!isNaN(e.off))){ $('resCard').hidden=true; lastResults={}; setMsg('sMsg','warn','Load a voyage plan in step 1 to convert these times.'); return; }
   const parsed=parseSchedule(text);
-  if(parsed.headerZone&&!auto){ $('sZone').value=parsed.headerZone; store.set('sZone',parsed.headerZone); }
+  const rowZones=[...new Set(parsed.rows.filter(r=>!r.time.tbd).map(r=>r.time.zone||''))];
+  const rowZone=rowZones.length===1&&rowZones[0]?rowZones[0]:null;
+  const autoZone=parsed.headerZone||rowZone;
+  if(autoZone&&!auto){ $('sZone').value=autoZone; store.set('sZone',autoZone); }
+  const abbrs=[...new Set(parsed.rows.filter(r=>!r.time.tbd).map(r=>r.time.abbr||''))];
+  const srcAbbr=abbrs.length===1&&abbrs[0]?abbrs[0]:null;
   const zone=$('sZone').value; store.set('sZone',zone);
   const yDefault=+(voy[0]?.date.slice(0,4))||new Date().getFullYear();
   const now=Date.now();
@@ -647,13 +672,23 @@ function convertSchedule(auto){
     const utc=zonedToUtc(y,r.date.mo,r.date.d,r.time.h,r.time.mi,z);
     const s=shipLocal(voy,chg(),utc);
     const alt=shipLocal(voy,'00:00',utc);           // what if clocks change at midnight?
-    res.push({r,utc,s,alt:(alt.off!==s.off?alt:null),y,z,srcOff:zoneOffsetMs(z,utc)/3600e3,past:utc+3.5*3600e3<now,live:utc<=now&&now<utc+3.5*3600e3});
+    let e=null;
+    if(r.end&&r.end.time&&!r.end.time.tbd){
+      const ey=r.end.date.y||y; const ez=r.end.time.zone||z;
+      let eu=zonedToUtc(ey,r.end.date.mo,r.end.date.d,r.end.time.h,r.end.time.mi,ez);
+      if(r.end.sameDay&&eu<=utc) eu+=86400e3;
+      const es=shipLocal(voy,chg(),eu), ealt=shipLocal(voy,'00:00',eu);
+      e={utc:eu,y:ey,date:r.end.date,time:r.end.time,z:ez,s:es,alt:(ealt.off!==es.off?ealt:null)};
+      if(r.end.sameDay){ const t=new Date(eu+zoneOffsetMs(ez,eu)); e.y=t.getUTCFullYear(); e.date={mo:t.getUTCMonth()+1,d:t.getUTCDate()}; }
+    }
+    const endMs=e?e.utc:utc+3.5*3600e3;
+    res.push({r,utc,s,e,alt:(alt.off!==s.off?alt:null),y,z,srcOff:zoneOffsetMs(z,utc)/3600e3,past:endMs<now,live:utc<=now&&now<endMs});
   }
   const groups=parsed.rows.map(r=>r.group).filter(Boolean);
-  lastResults={res,names,zone,group:groups[0]||''};
+  lastResults={res,names,zone,group:groups[0]||'',srcAbbr:(srcAbbr&&ABBR[srcAbbr]===$('sZone').value)?srcAbbr:null};
   renderReport();
   if(!parsed.rows.length) setMsg('sMsg','bad','No lines with both a date and a time were found.');
-  else setMsg('sMsg',parsed.skipped.length?'warn':'ok',`Converted ${parsed.rows.length} event(s)`+(parsed.headerZone&&!auto?` · time zone set to ${zl(parsed.headerZone)} from the header`:'')+(parsed.skipped.length?` · ${parsed.skipped.length} line(s) skipped: <span class="muted">${esc(parsed.skipped.slice(0,3).join(' | '))}${parsed.skipped.length>3?' …':''}</span>`:''));
+  else setMsg('sMsg',parsed.skipped.length?'warn':'ok',`Converted ${parsed.rows.length} event(s)`+(autoZone&&!auto?` · time zone set to ${zl(autoZone)} from the ${parsed.headerZone?'header':'times'}`:'')+(parsed.skipped.length?` · ${parsed.skipped.length} line(s) skipped: <span class="muted">${esc(parsed.skipped.slice(0,3).join(' | '))}${parsed.skipped.length>3?' …':''}</span>`:''));
 }
 
 $('convert').onclick=()=>convertSchedule(false);
@@ -666,10 +701,19 @@ function buildReport(){
   const {res,names,zone,group}=lastResults; if(!res||!res.length) return null;
   const h24=$('h24').checked, hidePast=$('hidePast').checked;
   const idx=re=>names.findIndex(n=>re.test(n||''));
-  const wi=idx(/^(week|wk)\b/i), ai=idx(/away|visitor|road/i), hi=idx(/home/i), ni=idx(/network|broadcast|channel|\btv\b/i);
-  const other=names.map((_,i)=>i).filter(i=>![wi,ai,hi,ni].includes(i));
+  const wi=idx(/^(week|wk)\b/i), ai=idx(/away|visitor|road/i), hi=idx(/home/i);
+  const isNFL=ai>=0&&hi>=0;
+  const ni=isNFL?idx(/network|broadcast|channel|\btv\b/i):-1;
+  const noteIdx=names.map((n,i)=>/note|remark|comment|info/i.test(n||'')?i:-1).filter(i=>i>=0&&![wi,ai,hi,ni].includes(i));
+  const other=names.map((_,i)=>i).filter(i=>![wi,ai,hi,ni,...noteIdx].includes(i));
+  const evIdx=other.find(i=>/event|program|title|show|match|game/i.test(names[i]||''))??other.find(i=>!/channel|network|station/i.test(names[i]||''))??other[0];
   const incNet=$('incNet').checked&&ni>=0;
-  const za=shortZ(zone);
+  $('incNetWrap').style.display=isNFL?'':'none';
+  const za=lastResults.srcAbbr||shortZ(zone);
+  const L=isNFL?'Kickoff':'Start';
+  const hasEnd=res.some(x=>x.e);
+  const srcStamp=(y,mo,d,h,mi,z)=>fmtStamp(y,mo,d,new Date(Date.UTC(y,mo-1,d)).getUTCDay(),h,mi,h24)+(z!==zone?' '+shortZ(z):'');
+  const shipStamp=s=>fmtStamp(s.y,s.mo,s.d,s.wd,s.h,s.mi,h24);
   const cols=[];
   if(wi>=0) cols.push({h:'Week',v:x=>x.r.extras[wi]?.val||''});
   if(ai>=0) cols.push({h:'Away',v:x=>x.r.extras[ai]?.val||''});
@@ -677,20 +721,26 @@ function buildReport(){
   other.forEach((i,k)=>cols.push({h:names[i]||(k===0?'Event':'Info '+k),v:x=>x.r.extras[i]?.val||''}));
   if(incNet) cols.push({h:names[ni]||'Network',v:x=>x.r.extras[ni]?.val||''});
   const nInfo=cols.length;
-  cols.push({h:`Kickoff (${za})`,v:x=>x.tbd?'TBD':fmtStamp(x.y,x.r.date.mo,x.r.date.d,new Date(Date.UTC(x.y,x.r.date.mo-1,x.r.date.d)).getUTCDay(),x.r.time.h,x.r.time.mi,h24)+(x.z!==zone?' '+shortZ(x.z):''),cls:'mono in'});
-  cols.push({h:'Kickoff (UTC)',v:x=>x.tbd?'TBD':stampFromMs(x.utc,h24),cls:'mono'});
-  cols.push({h:'Ship UTC Offset (h)',v:x=>x.tbd?'':offTxt(x.s.off),cls:'mono in'});
-  cols.push({h:'Kickoff (Ship Time)',v:x=>x.tbd?'TBD':fmtStamp(x.s.y,x.s.mo,x.s.d,x.s.wd,x.s.h,x.s.mi,h24),cls:'shipc'});
+  cols.push({h:`${L} (${za})`,v:x=>x.tbd?'TBD':srcStamp(x.y,x.r.date.mo,x.r.date.d,x.r.time.h,x.r.time.mi,x.z),cls:'mono in'});
+  if(hasEnd) cols.push({h:`End (${za})`,v:x=>x.e?srcStamp(x.e.y,x.e.date.mo,x.e.date.d,x.e.time.h,x.e.time.mi,x.e.z):'',cls:'mono in'});
+  if(zone!=='UTC') cols.push({h:`${L} (UTC)`,v:x=>x.tbd?'TBD':stampFromMs(x.utc,h24),cls:'mono'});
+  cols.push({h:'Ship UTC Offset (h)',v:x=>x.tbd?'':offTxt(x.s.off)+(x.e&&x.e.s.off!==x.s.off?' → '+offTxt(x.e.s.off):''),cls:'mono in'});
+  cols.push({h:`${L} (Ship Time)`,v:x=>x.tbd?'TBD':shipStamp(x.s),cls:'shipc'});
+  if(hasEnd) cols.push({h:'End (Ship Time)',v:x=>x.e?shipStamp(x.e.s):'',cls:'shipc'});
   cols.push({h:'Ship Day',v:x=>x.tbd?'':WDL[x.s.wd]});
+  noteIdx.forEach(i=>cols.push({h:names[i]||'Notes',v:x=>x.r.extras[i]?.val||'',cls:'wrap'}));
   const rows=res.filter(x=>!(hidePast&&x.past));
 
   // title
   const weekVal=(wi>=0&&res[0].r.extras[wi]?.val)||((group.match(/week\s*(\d+)/i)||[])[1]||'');
-  const isNFL=ai>=0&&hi>=0;
   const vm=(voyName||'').match(/Voyage\s*(\d+)/i);
   const voyLabel=vm?'Voyage '+vm[1]:'Voyage plan';
   const ship=$('rShip').value.trim();
-  const autoTitle=`${isNFL?'NFL ':''}${weekVal?'Week '+weekVal+' — ':''}${isNFL?'Kickoff':'Event'} Times in Ship Time (${ship?ship+', ':''}${voyLabel})`;
+  // shared prefix such as "NCAA Football:" in the event names
+  let prefix='';
+  if(!isNFL&&evIdx!=null){ const pre=[...new Set(res.map(x=>((x.r.extras[evIdx]?.val||'').match(/^([^:]{2,40}):/)||[])[1]||''))]; if(pre.length===1&&pre[0]) prefix=pre[0].trim(); }
+  const autoTitle=isNFL?`NFL ${weekVal?'Week '+weekVal+' — ':''}Kickoff Times in Ship Time (${ship?ship+', ':''}${voyLabel})`
+    :`${prefix?prefix+' — ':''}Event Times in Ship Time (${ship?ship+', ':''}${voyLabel})`;
   const title=titleEdited?$('rTitle').value.trim():autoTitle;
   if(!titleEdited) $('rTitle').value=autoTitle;
 
@@ -700,22 +750,27 @@ function buildReport(){
 
   // notes
   const notes=[];
-  notes.push(`Inputs: ${za} kickoff times from the schedule provided; ship UTC offsets from the ${voyLabel} plan.`);
+  notes.push(`Inputs: ${za} ${isNFL?'kickoff':'start'+(hasEnd?' and end':'')} times from the schedule provided; ship UTC offsets from the ${voyLabel} plan.`);
   const timed=res.filter(x=>!x.tbd);
   if(timed.length&&voy.length){
     const firstShip=ymd(timed[0].s.y,timed[0].s.mo,timed[0].s.d);
-    const last=timed.reduce((a,b)=>b.utc>a.utc?b:a);
-    const lastDate=new Date(Date.UTC(last.s.y,last.s.mo-1,last.s.d+1)); const lastKey=ymd(lastDate.getUTCFullYear(),lastDate.getUTCMonth()+1,lastDate.getUTCDate());
+    const last=timed.reduce((a,b)=>((b.e?b.e.utc:b.utc)>(a.e?a.e.utc:a.utc)?b:a));
+    const ls=last.e?last.e.s:last.s;
+    const lastDate=new Date(Date.UTC(ls.y,ls.mo-1,ls.d+1)); const lastKey=ymd(lastDate.getUTCFullYear(),lastDate.getUTCMonth()+1,lastDate.getUTCDate());
     const firstKey=timed.reduce((a,b)=>{const k=ymd(b.s.y,b.s.mo,b.s.d),k2=ymd(b.y,b.r.date.mo,b.r.date.d);return [a,k,k2].sort()[0];},firstShip);
     const days=voy.filter(e=>e.date>=firstKey&&e.date<=lastKey&&!isNaN(e.off));
     const runs=[]; days.forEach(e=>{ const r=runs[runs.length-1]; if(r&&r.off===e.off) r.n++; else runs.push({off:e.off,date:e.date,n:1}); });
     const dd=k=>{const [y,m,d]=k.split('-').map(Number); const t=new Date(Date.UTC(y,m-1,d)); return `${WD[t.getUTCDay()]} ${d} ${MON(m)}`;};
     if(runs.length) notes.push('Ship offsets: '+runs.map((r,i)=>{ const o=r.off===0?'UTC 0':'UTC '+fmtOffset(r.off); return (i===0?o:fmtOffset(r.off))+((r.n>1||(i===runs.length-1&&i>0))?' from ':' on ')+dd(r.date); }).join(', ')+'.');
   }
-  notes.push(`The offset used is the one in effect at kickoff, assuming clocks change around ${chg()} ship time overnight.`);
-  const desc=x=>isNFL?`${x.r.extras[ai]?.val||''}–${x.r.extras[hi]?.val||''}`:(x.r.extras[other[0]]?.val||'this event');
-  timed.filter(x=>x.alt).forEach(x=>{
-    const a=x.alt; notes.push(`If clocks change at midnight instead, ${desc(x)} becomes ${fmtStamp(a.y,a.mo,a.d,a.wd,a.h,a.mi,h24)} (ship UTC ${offTxt(a.off)}).`);
+  notes.push(`Each time uses the ship offset in effect at that moment, assuming clocks change around ${chg()} ship time overnight.`);
+  const desc=x=>isNFL?`${x.r.extras[ai]?.val||''}–${x.r.extras[hi]?.val||''}`:(evIdx!=null?(x.r.extras[evIdx]?.val||'this event'):'this event');
+  timed.filter(x=>x.e&&x.e.s.off!==x.s.off).forEach(x=>notes.push(`${desc(x)} runs across a clock change (UTC ${fmtOffset(x.s.off)} → ${fmtOffset(x.e.s.off)}), so it looks ${Math.abs(x.e.s.off-x.s.off)} hr shorter on ship clocks than it really is.`));
+  timed.filter(x=>x.alt||(x.e&&x.e.alt)).forEach(x=>{
+    const parts=[];
+    if(x.alt) parts.push(`${isNFL?'kickoff':'start'} becomes ${shipStamp(x.alt)}`);
+    if(x.e&&x.e.alt) parts.push(`end becomes ${shipStamp(x.e.alt)}`);
+    notes.push(`If clocks change at midnight instead, ${desc(x)}: ${parts.join(', ')}.`);
   });
   const outside=timed.filter(x=>x.s.range!=='in').length;
   if(outside) notes.push(`${outside} event(s) fall outside the voyage plan dates — load the next voyage plan for those.`);
@@ -734,11 +789,11 @@ function renderReport(){
     if(!x.tbd){
       if(x.live) tags+='<span class="tag live">live now</span> '; else if(x.past) tags+='<span class="tag past">played</span> ';
       if(x.s.range!=='in') tags+='<span class="tag day">outside voyage plan</span> ';
-      if(x.alt) tags+='<span class="tag chg">near clock change</span> ';
+      if(x.alt||(x.e&&x.e.alt)) tags+='<span class="tag chg">near clock change</span> ';
     }
     return `<tr class="${x.past?'past':''}">`+R.cols.map(c=>`<td class="${c.cls||''}">${esc(c.v(x))}</td>`).join('')+`<td>${tags}</td></tr>`;
-  }).join('')||`<tr><td colspan="${R.cols.length+1}" class="muted">Nothing to show (all games are past).</td></tr>`;
-  $('resNotes').innerHTML='<b>Notes</b><ul>'+R.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul><div class="hint">Blue cells are inputs: the original kickoff times and the ship UTC offsets from the voyage plan.</div>';
+  }).join('')||`<tr><td colspan="${R.cols.length+1}" class="muted">Nothing to show (all events are past).</td></tr>`;
+  $('resNotes').innerHTML='<b>Notes</b><ul>'+R.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul><div class="hint">Blue cells are inputs: the original times and the ship UTC offsets from the voyage plan.</div>';
 }
 
 function reportGrid(){
@@ -816,8 +871,11 @@ $('copyList').onclick=()=>{
   const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=names.findIndex(n=>/network|broadcast|channel|\btv\b/i.test(n||''));
   for(const x of R.rows){ if(x.tbd) continue; const key=ymd(x.s.y,x.s.mo,x.s.d); if(key!==last){ if(last) out.push(''); out.push(fmtDate(x.s.y,x.s.mo,x.s.d,x.s.wd,true).toUpperCase()); last=key; }
     const ex=x.r.extras.map(e=>e.val); let desc;
-    if(ai>=0&&hi>=0) desc=`${ex[ai]} @ ${ex[hi]}`+(ni>=0&&ex[ni]?` (${ex[ni]})`:''); else desc=ex.filter(v=>!/^\d{1,2}$/.test(v)).join(' · ');
-    out.push(`${fmtTime(x.s.h,x.s.mi,h24).padStart(8)}  ${desc}`); }
+    if(ai>=0&&hi>=0) desc=`${ex[ai]} @ ${ex[hi]}`+(ni>=0&&ex[ni]?` (${ex[ni]})`:'');
+    else { const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=names.findIndex(n=>/channel|network|station/i.test(n||''));
+      desc=ev>=0?ex[ev]+(ch>=0&&ex[ch]?` (${ex[ch]})`:''):ex.filter(v=>!/^\d{1,2}$/.test(v)).join(' · '); }
+    const endTxt=x.e?'–'+fmtTime(x.e.s.h,x.e.s.mi,h24):'';
+    out.push(`${(fmtTime(x.s.h,x.s.mi,h24)+endTxt).padStart(x.e?13:8)}  ${desc}`); }
   copyText(out.join('\n'),'Crew notice');
 };
 
