@@ -1355,6 +1355,7 @@ function shipPosition(now){
 }
 let posMap=null, posLayer=null, leafletTried=false;
 function loadLeaflet(){
+  if(window.claude) return Promise.reject();   // inside Claude's viewer remote map tiles can't load: use the built-in route chart
   if(window.L) return Promise.resolve(window.L);
   if(leafletTried) return Promise.reject(); leafletTried=true;
   return new Promise((res,rej)=>{
