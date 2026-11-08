@@ -43,7 +43,7 @@
   .theme[aria-checked="true"] .knob{left:25px}
   .theme:focus-visible{outline:2px solid #fff;outline-offset:2px}
   .hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
-  @media (max-width:600px){ .mark{width:48px;height:48px;border-radius:12px} .mark span{font-size:16px;left:6px;bottom:6px} .mark svg{width:14px;height:14px;right:5px;top:5px} .chips{gap:6px} .chip{font-size:12px;padding:4px 9px} }
+  @media (max-width:600px){ .mark{width:48px;height:48px;border-radius:12px} .mark svg{width:34px;height:34px} .chips{gap:6px} .chip{font-size:12px;padding:4px 9px} }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
   header{background:var(--navy);color:#fff;padding:calc(22px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 18px calc(20px + env(safe-area-inset-left))}
@@ -74,8 +74,7 @@
   .hdr-left{display:flex;flex-direction:column;gap:14px;min-width:0;flex:1 1 420px}
   .brand{display:flex;align-items:center;gap:14px}
   .mark{position:relative;flex:0 0 auto;width:58px;height:58px;border-radius:15px;background:#163a66;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px rgba(245,197,66,.55)}
-  .mark span{position:absolute;left:8px;bottom:8px;font:700 19px/1 'Space Grotesk',Inter,sans-serif;letter-spacing:-.5px;color:#fff}
-  .mark svg{position:absolute;right:6px;top:6px;width:17px;height:17px}
+  .mark svg{width:40px;height:40px}
   .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#dce6f3;border-radius:999px;padding:5px 11px;font-size:12.5px;white-space:nowrap}
   .chip b{color:#fff;font-weight:700}
@@ -221,8 +220,13 @@
     <div class="hdr-left">
       <div class="brand">
         <div class="mark" aria-hidden="true">
-          <span>JVL</span>
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="4" cy="18" r="2.6" fill="#F5C542"/><path d="M4 11a7 7 0 0 1 7 7" stroke="#F5C542" stroke-width="2.6" stroke-linecap="round"/><path d="M4 4a14 14 0 0 1 14 14" stroke="#F5C542" stroke-width="2.6" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 21V14h18v7" stroke="#fff" stroke-width="2.6"/>
+            <path d="M20 14V9h8v5" stroke="#fff" stroke-width="2.6"/>
+            <path d="M19 18h2M24 18h2M29 18h0" stroke="#F5C542" stroke-width="2.6"/>
+            <path d="M8 23h32l-4 10H12z" fill="#fff" stroke="#fff" stroke-width="2.4"/>
+            <path d="M6 38c3 0 3-2 6-2s3 2 6 2 3-2 6-2 3 2 6 2 3-2 6-2 3 2 6 2" stroke="#F5C542" stroke-width="2.6"/>
+          </svg>
         </div>
         <div>
           <h1>Game Time Converter</h1>
