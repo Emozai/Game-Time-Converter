@@ -1,0 +1,96 @@
+{
+  "updated": 1794106424355,
+  "name": "Voyage 66261028 · Barcelona → Port Canaveral",
+  "year": 2026,
+  "changeTime": "02:00",
+  "ship": "Norwegian Escape",
+  "days": [
+    {
+      "date": "2026-10-28",
+      "port": "Barcelona",
+      "off": 1
+    },
+    {
+      "date": "2026-10-29",
+      "port": "Marseille",
+      "off": 1
+    },
+    {
+      "date": "2026-10-30",
+      "port": "Palma de Mallorca",
+      "off": 1
+    },
+    {
+      "date": "2026-10-31",
+      "port": "Cartagena",
+      "off": 1
+    },
+    {
+      "date": "2026-11-01",
+      "port": "Motril",
+      "off": 1
+    },
+    {
+      "date": "2026-11-02",
+      "port": "Cadiz",
+      "off": 1
+    },
+    {
+      "date": "2026-11-03",
+      "port": "Tangier",
+      "off": 0
+    },
+    {
+      "date": "2026-11-04",
+      "port": "At sea",
+      "off": 0
+    },
+    {
+      "date": "2026-11-05",
+      "port": "Las Palmas",
+      "off": 0
+    },
+    {
+      "date": "2026-11-06",
+      "port": "At sea",
+      "off": -1
+    },
+    {
+      "date": "2026-11-07",
+      "port": "At sea",
+      "off": -1
+    },
+    {
+      "date": "2026-11-08",
+      "port": "At sea",
+      "off": -2
+    },
+    {
+      "date": "2026-11-09",
+      "port": "At sea",
+      "off": -3
+    },
+    {
+      "date": "2026-11-10",
+      "port": "At sea",
+      "off": -4
+    },
+    {
+      "date": "2026-11-11",
+      "port": "At sea",
+      "off": -4
+    },
+    {
+      "date": "2026-11-12",
+      "port": "At sea",
+      "off": -5
+    },
+    {
+      "date": "2026-11-13",
+      "port": "Port Canaveral",
+      "off": -5
+    }
+  ],
+  "schedule": "WEEK 9\nWeek\tDate\tDay\tTime (ET)\tAway Team\tHome Team\tBroadcast Network\n9\t11/05/2026\tThursday\t8:15 PM\tJacksonville Jaguars\tBaltimore Ravens\tPrime Video\n9\t11/08/2026\tSunday\t9:30 AM\tCincinnati Bengals\tAtlanta Falcons\tNFL Network\n9\t11/08/2026\tSunday\t1:00 PM\tNew York Jets\tKansas City Chiefs\tCBS\n9\t11/08/2026\tSunday\t1:00 PM\tCleveland Browns\tNew Orleans Saints\tCBS\n9\t11/08/2026\tSunday\t1:00 PM\tDenver Broncos\tCarolina Panthers\tCBS\n9\t11/08/2026\tSunday\t1:00 PM\tDallas Cowboys\tIndianapolis Colts\tFOX\n9\t11/08/2026\tSunday\t1:00 PM\tDetroit Lions\tMiami Dolphins\tFOX\n9\t11/08/2026\tSunday\t1:00 PM\tNew York Giants\tPhiladelphia Eagles\tFOX\n9\t11/08/2026\tSunday\t1:00 PM\tLos Angeles Rams\tWashington Commanders\tFOX\n9\t11/08/2026\tSunday\t4:05 PM\tLas Vegas Raiders\tSan Francisco 49ers\tCBS\n9\t11/08/2026\tSunday\t4:05 PM\tHouston Texans\tLos Angeles Chargers\tCBS\n9\t11/08/2026\tSunday\t4:25 PM\tArizona Cardinals\tSeattle Seahawks\tFOX\n9\t11/08/2026\tSunday\t4:25 PM\tGreen Bay Packers\tNew England Patriots\tFOX\n9\t11/08/2026\tSunday\t8:20 PM\tTampa Bay Buccaneers\tChicago Bears\tNBC\n9\t11/09/2026\tMonday\t8:15 PM\tBuffalo Bills\tMinnesota Vikings\tESPN",
+  "scheduleZone": "America/New_York"
+}

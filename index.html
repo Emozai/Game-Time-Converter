@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Time Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#0f1b2d; --muted:#5b6b80; --line:#dde3ea;
+    --navy:#0b2545; --accent:#1368ce; --accent-soft:#e6f0fc; --warn:#9a5b00; --warn-soft:#fff4e0;
+    --ok:#17794a; --ok-soft:#e5f5ec; --bad:#b42318; --bad-soft:#fdecea;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#0b1220; --card:#121b2c; --ink:#e7edf5; --muted:#93a3b8; --line:#24324a;
+      --navy:#0a1a33; --accent:#5aa2ff; --accent-soft:#16294a; --warn:#ffc266; --warn-soft:#332611;
+      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+  header{background:var(--navy);color:#fff;padding:22px 20px 18px}
+  header .wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+  h1{margin:0;font-size:24px;letter-spacing:-.01em}
+  header p{margin:4px 0 0;color:#b9c8dc;font-size:14px}
+  .now{display:flex;gap:18px;flex-wrap:wrap}
+  .now div{background:rgba(255,255,255,.08);border-radius:10px;padding:8px 14px;min-width:150px}
+  .now small{display:block;color:#b9c8dc;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .now b{font:700 20px var(--mono)}
+  .now span{font-size:12px;color:#cfdbea}
+  .wrap{max-width:1180px;margin:0 auto}
+  main{padding:18px 20px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:17px}
+  .card .sub{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+  .step{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-right:8px;vertical-align:1px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:860px){.grid2{grid-template-columns:1fr}}
+  label{font-size:12.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px}
+  input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+  textarea{font:13px/1.45 var(--mono);min-height:170px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .row > *{flex:1 1 140px}
+  button{font:600 14px Inter,system-ui,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.small{padding:4px 10px;font-size:12.5px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--muted);cursor:pointer}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop b{color:var(--accent)}
+  .msg{border-radius:8px;padding:9px 12px;font-size:13.5px;margin-top:10px}
+  .msg.warn{background:var(--warn-soft);color:var(--warn)}
+  .msg.ok{background:var(--ok-soft);color:var(--ok)}
+  .msg.bad{background:var(--bad-soft);color:var(--bad)}
+  .msg:empty{display:none}
+  table{border-collapse:collapse;width:100%}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;white-space:nowrap}
+  .voy{max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .voy th{position:sticky;top:0;background:var(--card);z-index:1}
+  .voy input{padding:4px 6px;font-size:13.5px}
+  .voy td.off input{width:70px;font-family:var(--mono);text-align:center}
+  .voy tr.change td{background:var(--accent-soft)}
+  .voy tr.today td{box-shadow:inset 3px 0 0 var(--ok)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
+  .tag.chg{background:var(--accent);color:#fff}
+  .tag.today{background:var(--ok);color:#fff}
+  .tag.day{background:var(--warn-soft);color:var(--warn)}
+  .tag.past{background:var(--line);color:var(--muted)}
+  .tag.live{background:var(--bad);color:#fff}
+  .results{overflow:auto}
+  .results td.ship{font:700 16px var(--mono);white-space:nowrap}
+  .results td.ship small{display:block;font:500 12px Inter,system-ui,sans-serif;color:var(--muted)}
+  .results td.src{white-space:nowrap;color:var(--muted);font-size:13.5px}
+  .results tr.past td{opacity:.55}
+  .results tr.group td{background:var(--accent-soft);font-weight:700;font-size:13px;color:var(--accent)}
+  .quick-out{margin-top:12px;padding:14px;border-radius:10px;background:var(--accent-soft)}
+  .quick-out b{font:700 22px var(--mono)}
+  .muted{color:var(--muted)}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  details summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:13.5px}
+  .toggle{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);font-weight:500;margin:0}
+  .toggle input{width:auto}
+  .results td{white-space:nowrap}
+  .results td.in{background:var(--accent-soft)}
+  .results td.mono{font-family:var(--mono);font-size:13.5px;white-space:nowrap}
+  .results td.shipc{font:700 14.5px var(--mono);white-space:nowrap}
+  .notes{margin-top:14px;font-size:13.5px}
+  .notes b{display:block;margin-bottom:4px}
+  .notes ul{margin:0;padding-left:18px;color:var(--muted)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div>
+      <h1>⚓ Game Time Converter</h1>
+      <p>Turn kickoff times from any time zone into <b>ship time</b>, using the ship's voyage plan.</p>
+    </div>
+    <div class="now">
+      <div><small>Ship time now (voyage plan)</small><b id="nowShip">--:--</b><span id="nowShipSub"></span></div>
+      <div><small>This device's clock</small><b id="nowDev">--:--</b><span id="nowDevSub"></span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="clockWarn" class="msg warn" style="margin:0 0 16px"></div>
+
+  <div class="grid2">
+    <!-- VOYAGE PLAN -->
+    <section class="card">
+      <h2><span class="step">1</span>Voyage plan</h2>
+      <p class="sub">Load the voyage plan PDF. Ship time comes from its daily UTC offsets. Check the table and edit any cell if needed.</p>
+      <div class="drop" id="drop">
+        <input type="file" id="pdfFile" accept=".pdf,application/pdf,.txt" hidden>
+        <b>Choose voyage plan PDF</b> or drop it here
+        <div class="hint" id="voyName"></div>
+      </div>
+      <div id="voyMsg" class="msg"></div>
+      <details style="margin-top:10px">
+        <summary>…or paste the voyage plan text</summary>
+        <textarea id="voyText" placeholder="Copy the table from the PDF and paste here (each line starting with a date like 8-Nov)"></textarea>
+        <div class="btns" style="margin-top:8px"><button id="voyParse">Read pasted text</button></div>
+      </details>
+      <div class="row" style="margin:14px 0 10px">
+        <div><label for="year">Voyage year</label><input id="year" type="number" min="2020" max="2100"></div>
+        <div><label for="chg">Clocks change at (ship time)</label><input id="chg" type="time" value="02:00"></div>
+      </div>
+      <div class="voy"><table>
+        <thead><tr><th>Date</th><th>Port</th><th>Ship UTC</th><th></th></tr></thead>
+        <tbody id="voyBody"></tbody>
+      </table></div>
+      <div class="btns" style="margin-top:10px">
+        <button class="small" id="addDay">+ Add day</button>
+        <button class="small" id="loadPreset">Load voyage 66261028 (Barcelona → Port Canaveral)</button>
+        <button class="small" id="saveSite" title="Save the voyage plan and schedule as site-data.json, then upload it next to index.html so every crew member sees it">⬆ Save as site-data.json</button>
+      </div>
+      <p class="hint">On a day whose offset differs from the day before, the change happens at the time above (default 02:00 ship time, the night going into that day).</p>
+    </section>
+
+    <!-- QUICK CONVERT -->
+    <section class="card">
+      <h2><span class="step">2</span>Quick convert</h2>
+      <p class="sub">Convert one event time.</p>
+      <div class="row">
+        <div><label for="qDate">Date</label><input id="qDate" type="date"></div>
+        <div><label for="qTime">Time</label><input id="qTime" type="time" value="13:00"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label for="qZone">Time zone of that time</label><select id="qZone" class="zoneSel"></select></div>
+      </div>
+      <div class="quick-out" id="qOut">—</div>
+
+      <div style="margin-top:18px">
+        <label for="fmt">Display</label>
+        <div class="row">
+          <label class="toggle"><input type="checkbox" id="h24"> 24-hour clock</label>
+          <label class="toggle"><input type="checkbox" id="hidePast"> Hide past games</label>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- SCHEDULE -->
+  <section class="card">
+    <h2><span class="step">3</span>Paste the game schedule</h2>
+    <p class="sub">Paste straight from a spreadsheet or website. Each line needs a date (11/08/2026, 2026-11-08 or Nov 8) and a time (1:00 PM or 13:00). A header row such as <i>Time (ET)</i> sets the time zone automatically.</p>
+    <div class="row" style="margin-bottom:10px">
+      <div style="flex:0 1 320px"><label for="sZone">Schedule times are in</label><select id="sZone" class="zoneSel"></select></div>
+      <div class="btns" style="flex:0 0 auto"><button class="primary" id="convert">Convert to ship time</button><button id="clearS">Clear</button></div>
+    </div>
+    <textarea id="sched" placeholder="Week	Date	Day	Time (ET)	Away Team	Home Team	Broadcast Network
+9	11/08/2026	Sunday	1:00 PM	New York Jets	Kansas City Chiefs	CBS"></textarea>
+    <div id="sMsg" class="msg"></div>
+  </section>
+
+  <section class="card" id="resCard" hidden>
+    <div class="row" style="margin-bottom:12px">
+      <div style="flex:3 1 380px"><label for="rTitle">Report title</label><input id="rTitle"></div>
+      <div style="flex:1 1 180px"><label for="rShip">Ship</label><input id="rShip"></div>
+      <div style="flex:0 0 auto"><label class="toggle" style="margin-bottom:9px"><input type="checkbox" id="incNet"> Include network column</label></div>
+    </div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="flex:1 1 auto">
+        <h2 style="margin:0" id="resTitle"></h2>
+        <div class="muted" style="font-size:13.5px;margin-top:2px" id="resOffset"></div>
+      </div>
+      <div class="btns" style="flex:0 0 auto">
+        <button class="small primary" id="dlCsv">⬇ Export CSV</button>
+        <button class="small" id="copyTable">Copy for spreadsheet</button>
+        <button class="small" id="copyList">Copy crew notice</button>
+      </div>
+    </div>
+    <div class="results"><table><thead id="resHead"></thead><tbody id="resBody"></tbody></table></div>
+    <div class="notes" id="resNotes"></div>
+  </section>
+</main>
+<footer class="wrap" style="padding:0 20px 30px;color:var(--muted);font-size:12.5px;text-align:center">Norwegian Escape · Technical Entertainment Team</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= CORE LOGIC (no DOM) ================= */
+const MONTHS=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WDL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const ZONES=[
+  ['America/New_York','US Eastern (ET)'],['America/Chicago','US Central (CT)'],['America/Denver','US Mountain (MT)'],
+  ['America/Phoenix','Arizona (no DST)'],['America/Los_Angeles','US Pacific (PT)'],['America/Anchorage','Alaska'],['Pacific/Honolulu','Hawaii'],
+  ['America/Halifax','Atlantic (AT)'],['America/Sao_Paulo','Brazil (BRT)'],['UTC','UTC / GMT'],['Europe/London','UK (GMT/BST)'],
+  ['Europe/Paris','Central Europe (CET)'],['Europe/Athens','Eastern Europe (EET)'],['Africa/Johannesburg','South Africa'],
+  ['Asia/Dubai','Gulf (GST)'],['Asia/Kolkata','India (IST)'],['Asia/Manila','Philippines (PHT)'],['Asia/Jakarta','Indonesia (WIB)'],
+  ['Asia/Tokyo','Japan (JST)'],['Australia/Sydney','Sydney (AET)'],['Pacific/Auckland','New Zealand']
+];
+const ABBR={ET:'America/New_York',EST:'America/New_York',EDT:'America/New_York',CT:'America/Chicago',CST:'America/Chicago',CDT:'America/Chicago',
+  MT:'America/Denver',MST:'America/Denver',MDT:'America/Denver',PT:'America/Los_Angeles',PST:'America/Los_Angeles',PDT:'America/Los_Angeles',
+  GMT:'UTC',UTC:'UTC',Z:'UTC',BST:'Europe/London',UK:'Europe/London',CET:'Europe/Paris',CEST:'Europe/Paris',EET:'Europe/Athens',
+  IST:'Asia/Kolkata',PHT:'Asia/Manila',JST:'Asia/Tokyo',AET:'Australia/Sydney',AEST:'Australia/Sydney',AEDT:'Australia/Sydney',BRT:'America/Sao_Paulo'};
+
+const pad=n=>String(n).padStart(2,'0');
+const ymd=(y,m,d)=>`${y}-${pad(m)}-${pad(d)}`;
+
+/* offset (ms) of an IANA zone at a UTC instant */
+const _fmtCache={};
+function zoneOffsetMs(zone,utcMs){
+  if(zone==='UTC') return 0;
+  const f=_fmtCache[zone]||(_fmtCache[zone]=new Intl.DateTimeFormat('en-US',{timeZone:zone,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  const p={}; for(const x of f.formatToParts(new Date(utcMs))) p[x.type]=x.value;
+  const asUtc=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second);
+  return asUtc-Math.floor(utcMs/1000)*1000;
+}
+/* wall-clock time in a zone -> UTC ms */
+function zonedToUtc(y,mo,d,h,mi,zone){
+  const guess=Date.UTC(y,mo-1,d,h,mi);
+  let utc=guess-zoneOffsetMs(zone,guess);
+  const o2=zoneOffsetMs(zone,utc);
+  utc=guess-o2;
+  return utc;
+}
+function parseOffset(s){
+  if(s==null) return NaN;
+  s=String(s).trim().replace(/[−–]/g,'-').replace(/^UTC/i,'');
+  if(s==='') return NaN;
+  const m=s.match(/^([+-]?)(\d{1,2})(?:[:.](\d{2}))?$/);
+  if(!m) return NaN;
+  let v=+m[2]+(m[3]?+m[3]/60:0); if(m[1]==='-') v=-v;
+  return Math.abs(v)<=14?v:NaN;
+}
+function fmtOffset(v){ if(isNaN(v)) return '?'; if(v===0) return '0'; const s=v>0?'+':'−'; const a=Math.abs(v); const h=Math.floor(a), m=Math.round((a-h)*60); return s+h+(m?':'+pad(m):''); }
+
+/* voyage: [{date:'YYYY-MM-DD', off:Number, port:''}] */
+function voyageTransitions(voy,chg){
+  const v=voy.filter(e=>e.date&&!isNaN(e.off)).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const [ch,cm]=(chg||'02:00').split(':').map(Number);
+  const tr=[];
+  for(let i=1;i<v.length;i++){
+    if(v[i].off!==v[i-1].off){
+      const [y,m,d]=v[i].date.split('-').map(Number);
+      tr.push({at:Date.UTC(y,m-1,d,ch,cm)-v[i-1].off*3600e3,from:v[i-1].off,to:v[i].off,date:v[i].date});
+    }
+  }
+  return {v,tr};
+}
+function shipOffsetAt(voy,chg,utcMs){
+  const {v,tr}=voyageTransitions(voy,chg);
+  if(!v.length) return {off:NaN,range:'none'};
+  let off=v[0].off;
+  for(const t of tr){ if(utcMs>=t.at) off=t.to; else break; }
+  const [y0,m0,d0]=v[0].date.split('-').map(Number);
+  const [y1,m1,d1]=v[v.length-1].date.split('-').map(Number);
+  const start=Date.UTC(y0,m0-1,d0)-v[0].off*3600e3, end=Date.UTC(y1,m1-1,d1+1)-v[v.length-1].off*3600e3;
+  const range=utcMs<start?'before':utcMs>=end?'after':'in';
+  // near a clock change? (within 1h)
+  const near=tr.find(t=>Math.abs(utcMs-t.at)<3600e3);
+  return {off,range,near};
+}
+function shipLocal(voy,chg,utcMs){
+  const r=shipOffsetAt(voy,chg,utcMs);
+  const d=new Date(utcMs+r.off*3600e3);
+  return {...r,y:d.getUTCFullYear(),mo:d.getUTCMonth()+1,d:d.getUTCDate(),h:d.getUTCHours(),mi:d.getUTCMinutes(),wd:d.getUTCDay()};
+}
+function fmtTime(h,mi,h24){ if(h24) return pad(h)+':'+pad(mi); const ap=h<12?'AM':'PM'; const hh=h%12||12; return hh+':'+pad(mi)+' '+ap; }
+function fmtDate(y,mo,d,wd,long){ return (long?WDL[wd]:WD[wd])+' '+MONTHS[mo-1].replace(/^./,c=>c.toUpperCase())+' '+d; }
+
+/* ---------- voyage text parsing (pdf text or pasted) ---------- */
+function inferYear(text){
+  const m=text.match(/VOYAGE\s*(?:NO\.?|#)?\s*(\d{8})/i);
+  if(m){ const yy=+m[1].slice(2,4), mm=+m[1].slice(4,6), dd=+m[1].slice(6,8); if(mm>=1&&mm<=12&&dd>=1&&dd<=31) return 2000+yy; }
+  const y=text.match(/\b(20\d{2})\b/); if(y) return +y[1];
+  return null;
+}
+const DATE_TOKEN=/^(\d{1,2})[-\s\/]?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?$/i;
+function parseVoyageText(text,year){
+  const out=[]; const lines=text.split(/\r?\n/);
+  for(const raw of lines){
+    const line=raw.replace(/[−–]/g,'-').trim();
+    const m=line.match(/^(\d{1,2})[-\s]?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\b(.*)$/i);
+    if(!m) continue;
+    const day=+m[1], mon=MONTHS.indexOf(m[2].slice(0,3).toLowerCase())+1, rest=m[3];
+    const toks=rest.trim().split(/\s+/);
+    let cands=[], loose=[];
+    toks.forEach((t,i)=>{
+      if(/^[+-]?\d{1,2}$/.test(t)&&!isNaN(parseOffset(t))){
+        const next=(toks[i+1]||'');
+        (/^hr/i.test(next)?loose:cands).push(+t);
+      }
+    });
+    const off=cands.length?cands[cands.length-1]:(loose.length?loose[loose.length-1]:NaN);
+    // port: words after weekday until operation keyword
+    let port='';
+    const pm=rest.match(/^\s*(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+(.+?)\s{1,}(?:Dock|C|Anchor|Tender|Ten|Anch|Cruising|At\s*sea)\b/i);
+    if(pm) port=pm[1].trim();
+    if(/at\s+sea/i.test(rest)) port='At sea';
+    out.push({day,mon,off,port});
+  }
+  // assign years with rollover
+  let y=year, prevMon=null;
+  return out.map(e=>{ if(prevMon!==null&&e.mon<prevMon-6) y++; prevMon=e.mon; return {date:ymd(y,e.mon,e.day),off:e.off,port:e.port}; });
+}
+
+/* ---------- schedule parsing ---------- */
+const DATE_PATTERNS=[
+  {re:/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/, f:m=>({mo:+m[1],d:+m[2],y:m[3]?(m[3].length===2?2000+ +m[3]:+m[3]):null})},
+  {re:/^(\d{4})-(\d{1,2})-(\d{1,2})$/, f:m=>({y:+m[1],mo:+m[2],d:+m[3]})},
+  {re:/^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?$/i, f:m=>({mo:MONTHS.indexOf(m[1].slice(0,3).toLowerCase())+1,d:+m[2],y:m[3]?+m[3]:null})},
+  {re:/^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?(?:,?\s+(\d{4}))?$/i, f:m=>({mo:MONTHS.indexOf(m[2].slice(0,3).toLowerCase())+1,d:+m[1],y:m[3]?+m[3]:null})}
+];
+const TIME_RE=/^(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*\(?([A-Z]{1,4})?\)?$/i;
+function matchDate(s){ s=s.trim(); for(const p of DATE_PATTERNS){ const m=s.match(p.re); if(m) return p.f(m);} return null; }
+function matchTime(s){
+  s=s.trim(); if(/^(tbd|tba)$/i.test(s)) return {tbd:true};
+  const m=s.match(TIME_RE); if(!m) return null;
+  if(!m[2]&&!m[3]) return null; // need colon or am/pm
+  let h=+m[1], mi=m[2]?+m[2]:0;
+  if(m[3]){ const pm=/^p/i.test(m[3]); if(h===12) h=pm?12:0; else if(pm) h+=12; }
+  if(h>23||mi>59) return null;
+  const z=m[4]?ABBR[m[4].toUpperCase()]:null;
+  if(m[4]&&!z) return null;
+  return {h,mi,zone:z};
+}
+function zoneFromHeader(text){
+  const m=text.match(/\(\s*([A-Z]{2,4})\s*\)/); if(m&&ABBR[m[1].toUpperCase()]) return ABBR[m[1].toUpperCase()];
+  const t=text.match(/\btime\s*[:\-]?\s*([A-Z]{2,4})\b/i); if(t&&ABBR[t[1].toUpperCase()]) return ABBR[t[1].toUpperCase()];
+  return null;
+}
+function splitFields(line){
+  if(line.includes('\t')) return line.split('\t').map(s=>s.trim());
+  if(line.includes(',')&&!/\d{1,2}:\d{2}/.test(line.split(',')[0])&&line.split(',').length>=3&&!/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i.test(line)) return line.split(',').map(s=>s.trim());
+  if(/\s{2,}/.test(line.trim())) return line.trim().split(/\s{2,}/);
+  // single-space line: try to pull out date and time with regex
+  return null;
+}
+function parseSchedule(text){
+  const rows=[]; let header=null, headerZone=null, group=null; const skipped=[];
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.replace(/ /g,' ');
+    if(!line.trim()) continue;
+    let fields=splitFields(line);
+    if(!fields){
+      // free-text: find date & time inside
+      const tm=line.match(/(\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?(?:\s*\(?(?:ET|EST|EDT|CT|CST|CDT|MT|MST|MDT|PT|PST|PDT|GMT|UTC|BST|CET|CEST)\)?)?|\d{1,2}\s*[ap]\.?m\.?(?:\s*\(?(?:ET|EST|EDT|CT|CST|CDT|MT|MST|MDT|PT|PST|PDT|GMT|UTC|BST|CET|CEST)\)?)?)/i);
+      const dm=line.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2}|(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:,?\s+\d{4})?)/i);
+      if(tm&&dm){
+        let rest=line.replace(tm[0],' ').replace(dm[0],' ').replace(/\b(Mon|Tues?|Wed(nes)?|Thu(rs)?|Fri|Sat(ur)?|Sun)(day)?\b,?/i,' ').replace(/\s+/g,' ').trim();
+        fields=[dm[0],tm[0],...(rest?[rest]:[])];
+      } else {
+        if(!header&&/time/i.test(line)) headerZone=zoneFromHeader(line)||headerZone;
+        if(line.trim().length<40&&!/\d{1,2}:\d{2}/.test(line)) group=line.trim();
+        else skipped.push(line.trim());
+        continue;
+      }
+    }
+    let di=-1, ti=-1, dt=null, tt=null;
+    fields.forEach((f,i)=>{ if(di<0){const x=matchDate(f); if(x){di=i;dt=x;return;}} if(ti<0){const x=matchTime(f); if(x){ti=i;tt=x;}} });
+    if(di<0&&ti<0){
+      if(fields.some(f=>/time/i.test(f))&&fields.length>=2){ header=fields; headerZone=zoneFromHeader(fields.join(' '))||headerZone; }
+      else if(fields.join(' ').trim().length<40) group=fields.join(' ').trim();
+      else skipped.push(line.trim());
+      continue;
+    }
+    if(di<0||ti<0){ skipped.push(line.trim()); continue; }
+    const extras=[];
+    fields.forEach((f,i)=>{
+      if(i===di||i===ti) return;
+      if(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?$/i.test(f)) return;
+      const name=header&&header.length===fields.length?header[i]:null;
+      if(name&&/^(day|date)$/i.test(name)) return;
+      extras.push({name,val:f});
+    });
+    rows.push({date:dt,time:tt,extras,group,raw:line.trim()});
+  }
+  return {rows,header,headerZone,skipped};
+}
+
+/* ================= UI ================= */
+if(typeof document!=='undefined') (function(){
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem('gtc_'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem('gtc_'+k,JSON.stringify(v));}catch(e){}}};
+
+const PRESET={name:'Voyage 66261028 · Barcelona → Port Canaveral',year:2026,days:[
+ ['2026-10-28','Barcelona',1],['2026-10-29','Marseille',1],['2026-10-30','Palma de Mallorca',1],['2026-10-31','Cartagena',1],
+ ['2026-11-01','Motril',1],['2026-11-02','Cadiz',1],['2026-11-03','Tangier',0],['2026-11-04','At sea',0],['2026-11-05','Las Palmas',0],
+ ['2026-11-06','At sea',-1],['2026-11-07','At sea',-1],['2026-11-08','At sea',-2],['2026-11-09','At sea',-3],['2026-11-10','At sea',-4],
+ ['2026-11-11','At sea',-4],['2026-11-12','At sea',-5],['2026-11-13','Port Canaveral',-5]].map(([date,port,off])=>({date,port,off}))};
+
+let voy=store.get('voy',null)||PRESET.days.map(x=>({...x}));
+let voyName=store.get('voyName',PRESET.name);
+$('year').value=store.get('year',PRESET.year);
+$('chg').value=store.get('chg','02:00');
+$('h24').checked=store.get('h24v2',true);
+$('hidePast').checked=store.get('hidePast',false);
+
+document.querySelectorAll('.zoneSel').forEach(sel=>{ sel.innerHTML=ZONES.map(([z,n])=>`<option value="${z}">${n}</option>`).join(''); });
+$('qZone').value=store.get('qZone','America/New_York');
+$('sZone').value=store.get('sZone','America/New_York');
+$('sched').value=store.get('sched','');
+
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),1800);}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function chg(){return $('chg').value||'02:00';}
+function save(){store.set('voy',voy);store.set('voyName',voyName);store.set('localStamp',Date.now());}
+
+function shipTodayDate(){ const s=shipLocal(voy,chg(),Date.now()); return isNaN(s.off)?null:ymd(s.y,s.mo,s.d); }
+
+function renderVoy(){
+  $('voyName').textContent=voyName||'';
+  voy.sort((a,b)=>a.date<b.date?-1:1);
+  const today=shipTodayDate();
+  $('voyBody').innerHTML=voy.map((e,i)=>{
+    const prev=voy[i-1]; const changed=prev&&!isNaN(e.off)&&!isNaN(prev.off)&&e.off!==prev.off;
+    const diff=changed?e.off-prev.off:0;
+    const badge=changed?`<span class="tag chg">${diff<0?'⟲ '+Math.abs(diff)+' hr back':'⟳ '+diff+' hr fwd'}</span>`:'';
+    const tb=e.date===today?' <span class="tag today">today</span>':'';
+    return `<tr class="${changed?'change':''} ${e.date===today?'today':''}">
+      <td><input type="date" data-i="${i}" data-k="date" value="${e.date}"></td>
+      <td><input data-i="${i}" data-k="port" value="${esc(e.port||'')}"></td>
+      <td class="off"><input data-i="${i}" data-k="off" value="${isNaN(e.off)?'':fmtOffset(e.off).replace('−','-')}" style="${isNaN(e.off)?'border-color:var(--bad)':''}"></td>
+      <td>${badge}${tb} <button class="small" data-del="${i}" title="Remove">✕</button></td></tr>`;
+  }).join('')||'<tr><td colspan="4" class="muted">No voyage days yet — load a PDF.</td></tr>';
+}
+$('voyBody').addEventListener('change',ev=>{
+  const t=ev.target; if(!t.dataset.k) return; const e=voy[+t.dataset.i];
+  if(t.dataset.k==='off') e.off=parseOffset(t.value); else e[t.dataset.k]=t.value;
+  save(); renderAll();
+});
+$('voyBody').addEventListener('click',ev=>{ const d=ev.target.dataset.del; if(d!=null){ voy.splice(+d,1); save(); renderAll(); }});
+$('addDay').onclick=()=>{
+  const last=voy[voy.length-1];
+  let date, off=0;
+  if(last){ const [y,m,d]=last.date.split('-').map(Number); const n=new Date(Date.UTC(y,m-1,d+1)); date=ymd(n.getUTCFullYear(),n.getUTCMonth()+1,n.getUTCDate()); off=last.off; }
+  else { const n=new Date(); date=ymd(n.getFullYear(),n.getMonth()+1,n.getDate()); }
+  voy.push({date,port:'',off}); save(); renderAll();
+};
+$('loadPreset').onclick=()=>{ voy=PRESET.days.map(x=>({...x})); voyName=PRESET.name; $('year').value=PRESET.year; store.set('year',PRESET.year); save(); setMsg('voyMsg','ok','Loaded voyage 66261028.'); renderAll(); };
+$('chg').onchange=()=>{store.set('chg',chg());renderAll();};
+$('year').onchange=()=>{
+  const y=+$('year').value; if(!y) return; store.set('year',y);
+  // shift voyage dates to new year, keeping month/day
+  if(voy.length){ const y0=+voy[0].date.slice(0,4); voy.forEach(e=>{const yy=+e.date.slice(0,4)-y0+y; e.date=yy+e.date.slice(4);}); save(); renderAll(); }
+};
+['h24','hidePast'].forEach(id=>$(id).onchange=()=>{store.set(id==='h24'?'h24v2':id,$(id).checked);renderAll();});
+
+function setMsg(id,kind,html){ const el=$(id); el.className='msg '+(html?kind:''); el.innerHTML=html||''; }
+
+function applyVoyage(list,name,text){
+  if(!list.length){ setMsg('voyMsg','bad','Couldn’t find any day rows (lines starting with a date like <b>8-Nov</b>). Try pasting the text instead, or edit the table by hand.'); return; }
+  voy=list; voyName=name; save();
+  const bad=list.filter(e=>isNaN(e.off)).length;
+  setMsg('voyMsg',bad?'warn':'ok',`Read <b>${list.length}</b> days (${list[0].date} → ${list[list.length-1].date}).`+(bad?` <b>${bad}</b> day(s) had no readable UTC offset (marked red) — please fill them in.`:' Please check the UTC column against the PDF.'));
+  renderAll();
+}
+$('voyParse').onclick=()=>{
+  const t=$('voyText').value; const y=inferYear(t)||+$('year').value||new Date().getFullYear(); $('year').value=y; store.set('year',y);
+  applyVoyage(parseVoyageText(t,y),'Pasted voyage plan',t);
+};
+
+/* ---- PDF loading via pdf.js ---- */
+let pdfjsReady=null;
+function loadPdfJs(){
+  if(pdfjsReady) return pdfjsReady;
+  pdfjsReady=(async()=>{
+    try{ // bundled copy (works offline on the ship network)
+      const lib=await import(new URL('lib/pdf.min.mjs',location.href).href);
+      lib.GlobalWorkerOptions.workerSrc=new URL('lib/pdf.worker.min.mjs',location.href).href;
+      return lib;
+    }catch(e){ return await loadPdfJsCdn(); }
+  })().catch(e=>{pdfjsReady=null;throw e;});
+  return pdfjsReady;
+}
+function loadPdfJsCdn(){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(window.pdfjsLib);}catch(e){rej(e);} };
+    s.onerror=()=>rej(new Error('PDF reader could not load'));
+    document.head.appendChild(s);
+  });
+}
+async function pdfToItems(file){
+  const lib=await loadPdfJs();
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
+  const items=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p); const tc=await page.getTextContent();
+    for(const it of tc.items){ const s=(it.str||'').trim(); if(s) items.push({s,x:it.transform[4],y:it.transform[5],w:it.width||0,p}); }
+  }
+  return items;
+}
+function itemsToLines(items){
+  const lines=[]; const sorted=items.slice().sort((a,b)=>a.p-b.p||b.y-a.y||a.x-b.x);
+  for(const it of sorted){ let L=lines.find(l=>l.p===it.p&&Math.abs(l.y-it.y)<3); if(!L){L={p:it.p,y:it.y,items:[]};lines.push(L);} L.items.push(it); }
+  lines.sort((a,b)=>a.p-b.p||b.y-a.y);
+  return lines.map(l=>l.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join('  '));
+}
+function parseVoyageItems(items,year){
+  // column-based: use the x position of the "UTC" header
+  const hdr=items.find(i=>/^UTC$/i.test(i.s));
+  const portH=items.find(i=>/^Port/i.test(i.s));
+  if(!hdr) return null;
+  const hx=hdr.x+hdr.w/2;
+  const dates=items.filter(i=>DATE_TOKEN.test(i.s)).sort((a,b)=>a.p-b.p||b.y-a.y);
+  if(dates.length<2) return null;
+  const out=[];
+  for(const di of dates){
+    const m=di.s.match(DATE_TOKEN);
+    const near=items.filter(i=>i.p===di.p&&Math.abs(i.y-di.y)<14&&/^[+\-−–]?\d{1,2}$/.test(i.s)&&Math.abs(i.x+i.w/2-hx)<35);
+    near.sort((a,b)=>Math.abs(a.y-di.y)-Math.abs(b.y-di.y)||Math.abs(a.x+a.w/2-hx)-Math.abs(b.x+b.w/2-hx));
+    let port='';
+    if(portH){ const pc=portH.x+portH.w/2; const cand=items.filter(i=>i.p===di.p&&Math.abs(i.y-di.y)<4&&/[a-z]/i.test(i.s)&&!DATE_TOKEN.test(i.s)&&Math.abs(i.x+i.w/2-pc)<70); cand.sort((a,b)=>Math.abs(a.x+a.w/2-pc)-Math.abs(b.x+b.w/2-pc)); if(cand[0]) port=cand[0].s; }
+    out.push({day:+m[1],mon:MONTHS.indexOf(m[2].slice(0,3).toLowerCase())+1,off:near[0]?parseOffset(near[0].s):NaN,port});
+  }
+  let y=year, prev=null;
+  return out.map(e=>{ if(prev!==null&&e.mon<prev-6) y++; prev=e.mon; return {date:ymd(y,e.mon,e.day),off:e.off,port:e.port}; });
+}
+async function handleFile(file){
+  if(!file) return;
+  if(/\.txt$/i.test(file.name)){ $('voyText').value=await file.text(); $('voyParse').click(); return; }
+  setMsg('voyMsg','warn','Reading '+esc(file.name)+'…');
+  try{
+    const items=await pdfToItems(file);
+    const lines=itemsToLines(items); const text=lines.join('\n');
+    const y=inferYear(text)||+$('year').value||new Date().getFullYear(); $('year').value=y; store.set('year',y);
+    let list=parseVoyageItems(items,y);
+    const textList=parseVoyageText(text,y);
+    if(!list||list.filter(e=>!isNaN(e.off)).length<textList.filter(e=>!isNaN(e.off)).length) list=textList;
+    // fill gaps in column result from text result
+    list.forEach(e=>{ if(isNaN(e.off)){ const t=textList.find(x=>x.date===e.date); if(t&&!isNaN(t.off)) e.off=t.off; } if(!e.port){ const t=textList.find(x=>x.date===e.date); if(t) e.port=t.port; } });
+    const vn=text.match(/VOYAGE\s*(?:NO\.?|#)?\s*(\d+)/i);
+    $('voyText').value=text;
+    applyVoyage(list,(vn?'Voyage '+vn[1]+' · ':'')+file.name,text);
+  }catch(err){
+    setMsg('voyMsg','bad','Couldn’t read the PDF here ('+esc(err.message||err)+'). Open the PDF, select all, copy, and paste the text under “paste the voyage plan text”.');
+  }
+}
+$('drop').onclick=()=>$('pdfFile').click();
+$('pdfFile').onchange=e=>handleFile(e.target.files[0]);
+['dragover','dragenter'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.add('over');}));
+['dragleave','drop'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
+
+/* ---- now panel ---- */
+function renderNow(){
+  const h24=$('h24').checked, now=Date.now();
+  const s=shipLocal(voy,chg(),now);
+  if(isNaN(s.off)){ $('nowShip').textContent='--:--'; $('nowShipSub').textContent='no voyage plan'; }
+  else { $('nowShip').textContent=fmtTime(s.h,s.mi,h24); $('nowShipSub').textContent=fmtDate(s.y,s.mo,s.d,s.wd)+' · UTC '+fmtOffset(s.off); }
+  const d=new Date(), devOff=-d.getTimezoneOffset()/60;
+  $('nowDev').textContent=fmtTime(d.getHours(),d.getMinutes(),h24);
+  $('nowDevSub').textContent=fmtDate(d.getFullYear(),d.getMonth()+1,d.getDate(),d.getDay())+' · UTC '+fmtOffset(devOff);
+  let w='';
+  if(!isNaN(s.off)&&s.range!=='in') w=`Right now is ${s.range==='before'?'before the start':'after the end'} of the loaded voyage plan, so ship time can’t be trusted. Load the current voyage plan PDF.`;
+  else if(!isNaN(s.off)&&devOff!==s.off) w=`This device is set to UTC ${fmtOffset(devOff)}, but the voyage plan puts the ship at UTC ${fmtOffset(s.off)} right now. All conversions below use the <b>voyage plan</b>. (If the ship’s clocks were changed at a different hour, adjust “Clocks change at”.)`;
+  $('clockWarn').innerHTML=w; $('clockWarn').style.display=w?'':'none';
+}
+
+/* ---- quick convert ---- */
+function renderQuick(){
+  const dv=$('qDate').value, tv=$('qTime').value, z=$('qZone').value; store.set('qZone',z);
+  if(!dv||!tv){ $('qOut').textContent='Pick a date and time.'; return; }
+  const [y,m,d]=dv.split('-').map(Number), [h,mi]=tv.split(':').map(Number);
+  const utc=zonedToUtc(y,m,d,h,mi,z); const s=shipLocal(voy,chg(),utc); const h24=$('h24').checked;
+  if(isNaN(s.off)){ $('qOut').textContent='Load a voyage plan first.'; return; }
+  const sameDay=(s.y===y&&s.mo===m&&s.d===d);
+  const src=new Date(Date.UTC(y,m-1,d));
+  const zl=ZONES.find(x=>x[0]===z)[1];
+  $('qOut').innerHTML=`<div class="muted" style="font-size:13px">${fmtDate(y,m,d,src.getUTCDay(),true)} · ${fmtTime(h,mi,h24)} ${esc(zl)}</div>
+    <b>${fmtTime(s.h,s.mi,h24)}</b> <span style="font-weight:600">ship time</span>
+    <div>${fmtDate(s.y,s.mo,s.d,s.wd,true)} ${sameDay?'':'<span class="tag day">next/prev day</span>'} · ship UTC ${fmtOffset(s.off)}</div>
+    ${s.range!=='in'?'<div class="msg warn">This date is outside the loaded voyage plan.</div>':''}
+    ${s.near?`<div class="msg warn">Within an hour of the ${s.near.date} clock change — double-check with the bridge.</div>`:''}`;
+}
+['qDate','qTime','qZone'].forEach(id=>$(id).addEventListener('input',renderQuick));
+(function(){ const n=new Date(); $('qDate').value=ymd(n.getFullYear(),n.getMonth()+1,n.getDate()); })();
+
+/* ---- schedule ---- */
+let lastResults={};
+let titleEdited=false;
+$('rShip').value=store.get('ship','Norwegian Escape');
+$('incNet').checked=store.get('incNet',false);
+$('rTitle').addEventListener('input',()=>{titleEdited=!!$('rTitle').value.trim(); renderReport();});
+$('rShip').addEventListener('input',()=>{store.set('ship',$('rShip').value); renderReport();});
+$('incNet').onchange=()=>{store.set('incNet',$('incNet').checked); renderReport();};
+
+const zl=n=>ZONES.find(x=>x[0]===n)?.[1]||n;
+const SHORTZ={'America/New_York':'ET','America/Chicago':'CT','America/Denver':'MT','America/Phoenix':'MST','America/Los_Angeles':'PT','America/Anchorage':'AKT','Pacific/Honolulu':'HT','America/Halifax':'AT','America/Sao_Paulo':'BRT','UTC':'UTC','Europe/London':'UK','Europe/Paris':'CET','Europe/Athens':'EET','Africa/Johannesburg':'SAST','Asia/Dubai':'GST','Asia/Kolkata':'IST','Asia/Manila':'PHT','Asia/Jakarta':'WIB','Asia/Tokyo':'JST','Australia/Sydney':'AET','Pacific/Auckland':'NZT'};
+const shortZ=z=>SHORTZ[z]||z;
+const MON=m=>MONTHS[m-1].replace(/^./,c=>c.toUpperCase());
+function fmtStamp(y,mo,d,wd,h,mi,h24){ return `${WD[wd]} ${pad(d)}-${MON(mo)} ${fmtTime(h,mi,h24)}`; }
+function stampFromMs(ms,h24){ const t=new Date(ms); return fmtStamp(t.getUTCFullYear(),t.getUTCMonth()+1,t.getUTCDate(),t.getUTCDay(),t.getUTCHours(),t.getUTCMinutes(),h24); }
+const offTxt=v=>isNaN(v)?'':(v===0?'0':(v>0?'+':'-')+Math.abs(v));   // ASCII for CSV/sheets
+
+function convertSchedule(auto){
+  const text=$('sched').value; store.set('sched',text);
+  if(!text.trim()){ $('resCard').hidden=true; setMsg('sMsg','',''); lastResults={}; return; }
+  const parsed=parseSchedule(text);
+  if(parsed.headerZone&&!auto){ $('sZone').value=parsed.headerZone; store.set('sZone',parsed.headerZone); }
+  const zone=$('sZone').value; store.set('sZone',zone);
+  const yDefault=+(voy[0]?.date.slice(0,4))||new Date().getFullYear();
+  const now=Date.now();
+  const names=[]; parsed.rows.forEach(r=>r.extras.forEach((e,i)=>{ if(names.length<=i) names.push(e.name||''); else if(!names[i]&&e.name) names[i]=e.name; }));
+  const res=[];
+  for(const r of parsed.rows){
+    const y=r.date.y||yDefault; const z=(r.time&&r.time.zone)||zone;
+    if(r.time.tbd){ res.push({r,tbd:true,y,z}); continue; }
+    const utc=zonedToUtc(y,r.date.mo,r.date.d,r.time.h,r.time.mi,z);
+    const s=shipLocal(voy,chg(),utc);
+    const alt=shipLocal(voy,'00:00',utc);           // what if clocks change at midnight?
+    res.push({r,utc,s,alt:(alt.off!==s.off?alt:null),y,z,srcOff:zoneOffsetMs(z,utc)/3600e3,past:utc+3.5*3600e3<now,live:utc<=now&&now<utc+3.5*3600e3});
+  }
+  const groups=parsed.rows.map(r=>r.group).filter(Boolean);
+  lastResults={res,names,zone,group:groups[0]||''};
+  renderReport();
+  if(!parsed.rows.length) setMsg('sMsg','bad','No lines with both a date and a time were found.');
+  else setMsg('sMsg',parsed.skipped.length?'warn':'ok',`Converted ${parsed.rows.length} event(s)`+(parsed.headerZone&&!auto?` · time zone set to ${zl(parsed.headerZone)} from the header`:'')+(parsed.skipped.length?` · ${parsed.skipped.length} line(s) skipped: <span class="muted">${esc(parsed.skipped.slice(0,3).join(' | '))}${parsed.skipped.length>3?' …':''}</span>`:''));
+}
+
+$('convert').onclick=()=>convertSchedule(false);
+$('sZone').onchange=()=>{store.set('sZone',$('sZone').value);convertSchedule(true);};
+$('clearS').onclick=()=>{$('sched').value='';convertSchedule(true);};
+$('sched').addEventListener('paste',()=>setTimeout(()=>convertSchedule(false),0));
+
+/* Build the report (same data for screen, CSV and clipboard) */
+function buildReport(){
+  const {res,names,zone,group}=lastResults; if(!res||!res.length) return null;
+  const h24=$('h24').checked, hidePast=$('hidePast').checked;
+  const idx=re=>names.findIndex(n=>re.test(n||''));
+  const wi=idx(/^(week|wk)\b/i), ai=idx(/away|visitor|road/i), hi=idx(/home/i), ni=idx(/network|broadcast|channel|\btv\b/i);
+  const other=names.map((_,i)=>i).filter(i=>![wi,ai,hi,ni].includes(i));
+  const incNet=$('incNet').checked&&ni>=0;
+  const za=shortZ(zone);
+  const cols=[];
+  if(wi>=0) cols.push({h:'Week',v:x=>x.r.extras[wi]?.val||''});
+  if(ai>=0) cols.push({h:'Away',v:x=>x.r.extras[ai]?.val||''});
+  if(hi>=0) cols.push({h:'Home',v:x=>x.r.extras[hi]?.val||''});
+  other.forEach((i,k)=>cols.push({h:names[i]||(k===0?'Event':'Info '+k),v:x=>x.r.extras[i]?.val||''}));
+  if(incNet) cols.push({h:names[ni]||'Network',v:x=>x.r.extras[ni]?.val||''});
+  const nInfo=cols.length;
+  cols.push({h:`Kickoff (${za})`,v:x=>x.tbd?'TBD':fmtStamp(x.y,x.r.date.mo,x.r.date.d,new Date(Date.UTC(x.y,x.r.date.mo-1,x.r.date.d)).getUTCDay(),x.r.time.h,x.r.time.mi,h24)+(x.z!==zone?' '+shortZ(x.z):''),cls:'mono in'});
+  cols.push({h:'Kickoff (UTC)',v:x=>x.tbd?'TBD':stampFromMs(x.utc,h24),cls:'mono'});
+  cols.push({h:'Ship UTC Offset (h)',v:x=>x.tbd?'':offTxt(x.s.off),cls:'mono in'});
+  cols.push({h:'Kickoff (Ship Time)',v:x=>x.tbd?'TBD':fmtStamp(x.s.y,x.s.mo,x.s.d,x.s.wd,x.s.h,x.s.mi,h24),cls:'shipc'});
+  cols.push({h:'Ship Day',v:x=>x.tbd?'':WDL[x.s.wd]});
+  const rows=res.filter(x=>!(hidePast&&x.past));
+
+  // title
+  const weekVal=(wi>=0&&res[0].r.extras[wi]?.val)||((group.match(/week\s*(\d+)/i)||[])[1]||'');
+  const isNFL=ai>=0&&hi>=0;
+  const vm=(voyName||'').match(/Voyage\s*(\d+)/i);
+  const voyLabel=vm?'Voyage '+vm[1]:'Voyage plan';
+  const ship=$('rShip').value.trim();
+  const autoTitle=`${isNFL?'NFL ':''}${weekVal?'Week '+weekVal+' — ':''}${isNFL?'Kickoff':'Event'} Times in Ship Time (${ship?ship+', ':''}${voyLabel})`;
+  const title=titleEdited?$('rTitle').value.trim():autoTitle;
+  if(!titleEdited) $('rTitle').value=autoTitle;
+
+  // source offset line
+  const offs=[...new Set(res.filter(x=>!x.tbd&&x.z===zone).map(x=>x.srcOff))];
+  const offLine=[`${za} offset from UTC (hours):`, offs.length?offs.map(offTxt).join(' / '):''];
+
+  // notes
+  const notes=[];
+  notes.push(`Inputs: ${za} kickoff times from the schedule provided; ship UTC offsets from the ${voyLabel} plan.`);
+  const timed=res.filter(x=>!x.tbd);
+  if(timed.length&&voy.length){
+    const firstShip=ymd(timed[0].s.y,timed[0].s.mo,timed[0].s.d);
+    const last=timed.reduce((a,b)=>b.utc>a.utc?b:a);
+    const lastDate=new Date(Date.UTC(last.s.y,last.s.mo-1,last.s.d+1)); const lastKey=ymd(lastDate.getUTCFullYear(),lastDate.getUTCMonth()+1,lastDate.getUTCDate());
+    const firstKey=timed.reduce((a,b)=>{const k=ymd(b.s.y,b.s.mo,b.s.d),k2=ymd(b.y,b.r.date.mo,b.r.date.d);return [a,k,k2].sort()[0];},firstShip);
+    const days=voy.filter(e=>e.date>=firstKey&&e.date<=lastKey&&!isNaN(e.off));
+    const runs=[]; days.forEach(e=>{ const r=runs[runs.length-1]; if(r&&r.off===e.off) r.n++; else runs.push({off:e.off,date:e.date,n:1}); });
+    const dd=k=>{const [y,m,d]=k.split('-').map(Number); const t=new Date(Date.UTC(y,m-1,d)); return `${WD[t.getUTCDay()]} ${d} ${MON(m)}`;};
+    if(runs.length) notes.push('Ship offsets: '+runs.map((r,i)=>{ const o=r.off===0?'UTC 0':'UTC '+fmtOffset(r.off); return (i===0?o:fmtOffset(r.off))+((r.n>1||(i===runs.length-1&&i>0))?' from ':' on ')+dd(r.date); }).join(', ')+'.');
+  }
+  notes.push(`The offset used is the one in effect at kickoff, assuming clocks change around ${chg()} ship time overnight.`);
+  const desc=x=>isNFL?`${x.r.extras[ai]?.val||''}–${x.r.extras[hi]?.val||''}`:(x.r.extras[other[0]]?.val||'this event');
+  timed.filter(x=>x.alt).forEach(x=>{
+    const a=x.alt; notes.push(`If clocks change at midnight instead, ${desc(x)} becomes ${fmtStamp(a.y,a.mo,a.d,a.wd,a.h,a.mi,h24)} (ship UTC ${offTxt(a.off)}).`);
+  });
+  const outside=timed.filter(x=>x.s.range!=='in').length;
+  if(outside) notes.push(`${outside} event(s) fall outside the voyage plan dates — load the next voyage plan for those.`);
+  return {title,offLine,cols,nInfo,rows,notes};
+}
+
+function renderReport(){
+  const R=buildReport();
+  if(!R){ $('resCard').hidden=true; return; }
+  $('resCard').hidden=false;
+  $('resTitle').textContent=R.title;
+  $('resOffset').textContent=R.offLine.join(' ');
+  $('resHead').innerHTML='<tr>'+R.cols.map(c=>`<th>${esc(c.h)}</th>`).join('')+'<th></th></tr>';
+  $('resBody').innerHTML=R.rows.map(x=>{
+    let tags='';
+    if(!x.tbd){
+      if(x.live) tags+='<span class="tag live">live now</span> '; else if(x.past) tags+='<span class="tag past">played</span> ';
+      if(x.s.range!=='in') tags+='<span class="tag day">outside voyage plan</span> ';
+      if(x.alt) tags+='<span class="tag chg">near clock change</span> ';
+    }
+    return `<tr class="${x.past?'past':''}">`+R.cols.map(c=>`<td class="${c.cls||''}">${esc(c.v(x))}</td>`).join('')+`<td>${tags}</td></tr>`;
+  }).join('')||`<tr><td colspan="${R.cols.length+1}" class="muted">Nothing to show (all games are past).</td></tr>`;
+  $('resNotes').innerHTML='<b>Notes</b><ul>'+R.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul><div class="hint">Blue cells are inputs: the original kickoff times and the ship UTC offsets from the voyage plan.</div>';
+}
+
+function reportGrid(){
+  const R=buildReport(); if(!R) return null;
+  const w=R.cols.length, padRow=a=>{const r=a.slice(); while(r.length<w) r.push(''); return r;};
+  const g=[];
+  g.push(padRow([R.title]));
+  g.push(padRow([R.offLine[0],'',R.offLine[1]]));
+  g.push(padRow([]));
+  g.push(R.cols.map(c=>c.h));
+  R.rows.forEach(x=>g.push(R.cols.map(c=>c.v(x))));
+  g.push(padRow([]));
+  g.push(padRow(['Notes:']));
+  R.notes.forEach(n=>g.push(padRow([n])));
+  return {R,g};
+}
+const csvCell=v=>{ v=String(v??''); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+function toCsv(g){ return '﻿'+g.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n'; }
+function fileName(R){ return (R.title.replace(/\s*\(.*\)\s*/,' ').replace(/[—–]/g,'-').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'_')||'game_times')+'_ship_time.csv'; }
+
+let dlNs; // undefined = not resolved yet, null = unavailable
+(async()=>{ try{ dlNs=window.claude&&window.claude.use?await window.claude.use('downloads'):null; }catch(e){ dlNs=null; } })();
+$('dlCsv').onclick=async()=>{
+  const x=reportGrid(); if(!x) return;
+  const csv=toCsv(x.g), name=fileName(x.R);
+  if(dlNs){
+    try{ await dlNs.save({filename:name,data:csv}); toast('CSV saved'); return; }
+    catch(e){ if(e&&e.code==='declined'){ toast('Download cancelled'); return; } if(e&&e.code==='rate_limited'){ toast('Please wait a moment and try again'); return; } }
+  }
+  if(saveFile(name,csv,'text/csv;charset=utf-8')) return;
+  copyText(csv.replace(/^﻿/,''),'CSV (download not available here)');
+};
+function saveFile(name,data,type){
+  try{
+    const url=URL.createObjectURL(new Blob([data],{type}));
+    const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000); toast(name+' downloaded'); return true;
+  }catch(e){ return false; }
+}
+
+/* ---- site data: one voyage plan for everyone ---- */
+function siteData(){
+  return {updated:Date.now(),name:voyName,year:+$('year').value,changeTime:chg(),ship:$('rShip').value,
+    days:voy.map(e=>({date:e.date,port:e.port||'',off:isNaN(e.off)?null:e.off})),
+    schedule:$('sched').value,scheduleZone:$('sZone').value};
+}
+$('saveSite').onclick=async()=>{
+  const json=JSON.stringify(siteData(),null,2);
+  if(dlNs){ try{ await dlNs.save({filename:'site-data.json',data:json}); toast('site-data.json saved'); return; }catch(e){ if(e&&e.code==='declined') return; } }
+  if(!saveFile('site-data.json',json,'application/json')) copyText(json,'site-data.json');
+};
+async function loadSiteData(){
+  if(location.protocol==='file:') return;
+  try{
+    const r=await fetch('site-data.json',{cache:'no-store'}); if(!r.ok) return;
+    const d=await r.json(); if(!d||!Array.isArray(d.days)) return;
+    if((store.get('localStamp',0)||0)>(d.updated||0)){ setMsg('voyMsg','warn','You have local changes. <button class="small" id="useSite">Use the published voyage plan</button>'); $('useSite').onclick=()=>applySite(d,true); return; }
+    applySite(d,false);
+  }catch(e){}
+}
+function applySite(d,clicked){
+  voy=d.days.map(e=>({date:e.date,port:e.port||'',off:e.off==null?NaN:+e.off})); voyName=d.name||'';
+  if(d.year) $('year').value=d.year; if(d.changeTime) $('chg').value=d.changeTime; if(d.ship) $('rShip').value=d.ship;
+  store.set('voy',voy); store.set('voyName',voyName); store.set('chg',chg()); store.set('localStamp',d.updated||0);
+  if(d.schedule&&(clicked||!$('sched').value.trim()||store.get('siteSchedStamp',0)<(d.updated||0))){ $('sched').value=d.schedule; if(d.scheduleZone) $('sZone').value=d.scheduleZone; store.set('siteSchedStamp',d.updated||0); }
+  setMsg('voyMsg','ok','Using the published voyage plan'+(d.updated?' (updated '+new Date(d.updated).toLocaleString()+')':'')+'.');
+  renderAll();
+}
+$('copyTable').onclick=()=>{ const x=reportGrid(); if(x) copyText(x.g.map(r=>r.join('\t')).join('\n'),'Table'); };
+
+async function copyText(t,label){ try{ await navigator.clipboard.writeText(t); toast(label+' copied'); }catch(e){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');toast(label+' copied');}catch(_){toast('Copy blocked — select and copy manually');} ta.remove(); } }
+$('copyList').onclick=()=>{
+  const R=buildReport(); if(!R) return; const {names}=lastResults; const h24=$('h24').checked;
+  let out=[R.title.toUpperCase(),''], last=null;
+  const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=names.findIndex(n=>/network|broadcast|channel|\btv\b/i.test(n||''));
+  for(const x of R.rows){ if(x.tbd) continue; const key=ymd(x.s.y,x.s.mo,x.s.d); if(key!==last){ if(last) out.push(''); out.push(fmtDate(x.s.y,x.s.mo,x.s.d,x.s.wd,true).toUpperCase()); last=key; }
+    const ex=x.r.extras.map(e=>e.val); let desc;
+    if(ai>=0&&hi>=0) desc=`${ex[ai]} @ ${ex[hi]}`+(ni>=0&&ex[ni]?` (${ex[ni]})`:''); else desc=ex.filter(v=>!/^\d{1,2}$/.test(v)).join(' · ');
+    out.push(`${fmtTime(x.s.h,x.s.mi,h24).padStart(8)}  ${desc}`); }
+  copyText(out.join('\n'),'Crew notice');
+};
+
+function renderAll(){ renderVoy(); renderNow(); renderQuick(); convertSchedule(true); }
+renderAll();
+loadSiteData();
+setInterval(renderNow,20000);
+})();
+</script>
+</body>
+</html>
