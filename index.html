@@ -183,6 +183,19 @@
   .notes b{display:block;margin-bottom:4px}
   .notes ul{margin:0;padding-left:18px;color:var(--muted)}
   .credit{text-align:center;color:var(--muted);font-size:12.5px;padding:0 20px calc(28px + env(safe-area-inset-bottom));margin-top:-36px}
+  .credit-link{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer;min-height:0}
+  .jvl-contact{width:min(440px,calc(100vw - 24px));padding:0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .jvl-contact::backdrop{background:rgba(5,12,24,.55)}
+  .jvl-contact form{padding:18px;display:flex;flex-direction:column;gap:6px}
+  .jvl-contact label{font-size:12.5px;font-weight:600;color:var(--muted);margin-top:6px}
+  .jvl-contact textarea{font:inherit;min-height:110px}
+  .jvl-head{display:flex;align-items:center;justify-content:space-between}
+  .jvl-head h3{margin:0;font-size:18px}
+  .jvl-x{border:0;background:none;color:var(--muted);font-size:16px;padding:4px 8px}
+  .jvl-note{margin:0 0 4px;color:var(--muted);font-size:13px}
+  .jvl-status{min-height:18px;font-size:13px}
+  .jvl-status.ok{color:var(--ok)} .jvl-status.err{color:var(--bad)}
+  .jvl-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
   body.crew .admin-only{display:none!important}
   body:not(.crew) .crew-only{display:none!important}
   body.crew .step{display:none}
@@ -394,7 +407,52 @@
     <div class="notes" id="resNotes"></div>
   </section>
 </main>
-<footer class="credit">Made by JVL - Broadcast</footer>
+<footer class="credit">Made by JVL - Broadcast · <button type="button" class="credit-link" id="jvlContactOpen">Contact me</button></footer>
+<dialog id="jvlContact" class="jvl-contact" aria-labelledby="jvlContactTitle">
+  <form id="jvlContactForm" novalidate>
+    <div class="jvl-head"><h3 id="jvlContactTitle">Contact me</h3><button type="button" class="jvl-x" id="jvlContactClose" aria-label="Close">✕</button></div>
+    <p class="jvl-note">Questions, problems or ideas about the Game Time Converter? Send a message to JVL - Broadcast.</p>
+    <label for="jvlName">Your name</label>
+    <input id="jvlName" type="text" autocomplete="name" maxlength="80">
+    <label for="jvlEmail">Your email (optional, so I can reply)</label>
+    <input id="jvlEmail" type="email" autocomplete="email" maxlength="120">
+    <label for="jvlMsg">Message</label>
+    <textarea id="jvlMsg" maxlength="3000"></textarea>
+    <input type="checkbox" id="jvlBot" tabindex="-1" autocomplete="off" style="display:none">
+    <div class="jvl-status" id="jvlStatus" role="status" aria-live="polite"></div>
+    <div class="jvl-actions"><button type="button" id="jvlCancel">Cancel</button><button type="submit" class="primary" id="jvlSend">Send message</button></div>
+  </form>
+</dialog>
+<script>
+// Contact form: messages go to JVL - Broadcast by email through Web3Forms.
+// The access key is an alias for the email address, so the address itself never appears on this page.
+(function () {
+  var ACCESS_KEY = '794278dd-42c5-4214-956b-aed96ede7ea9';
+  var g = function (id) { return document.getElementById(id); };
+  var dlg = g('jvlContact'), form = g('jvlContactForm'), status = g('jvlStatus'), send = g('jvlSend');
+  function say(t, cls) { status.textContent = t; status.className = 'jvl-status ' + (cls || ''); }
+  function open() { say(''); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); setTimeout(function () { g('jvlName').focus(); }, 50); }
+  function close() { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
+  g('jvlContactOpen').onclick = open; g('jvlContactClose').onclick = close; g('jvlCancel').onclick = close;
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) close(); });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = g('jvlName').value.trim(), email = g('jvlEmail').value.trim(), msg = g('jvlMsg').value.trim();
+    if (!name || !msg) { say('Please enter your name and a message.', 'err'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { say('That email address does not look right.', 'err'); return; }
+    if (g('jvlBot').checked) return;
+    if (!navigator.onLine) { say('You are offline. Please try again when you have internet.', 'err'); return; }
+    var body = { access_key: ACCESS_KEY, subject: 'Game Time Converter message from ' + name, from_name: 'Game Time Converter – ' + name, name: name, message: msg, page: location.href };
+    if (email) { body.email = email; body.replyto = email; }
+    send.disabled = true; say('Sending…');
+    fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.success) throw new Error(j.message || 'Send failed'); }); })
+      .then(function () { form.reset(); say('Thank you! Your message was sent.', 'ok'); setTimeout(close, 1800); })
+      .catch(function () { say('Could not send the message. Please try again in a moment.', 'err'); })
+      .then(function () { send.disabled = false; });
+  });
+})();
+</script>
 <div class="toast" id="toast"></div>
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet" role="dialog" aria-labelledby="sheetTitle">
