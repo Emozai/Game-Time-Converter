@@ -421,6 +421,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
   </section>
 
   <section class="card" id="resCard" hidden>
+    <div id="resClockWarn" class="msg warn" style="margin:0 0 14px;display:none"></div>
     <div class="row admin-only" style="margin-bottom:12px">
       <div style="flex:3 1 380px"><label for="rTitle">Report title</label><input id="rTitle"></div>
       <div style="flex:1 1 180px"><label for="rShip">Ship</label><input id="rShip"></div>
@@ -1162,6 +1163,23 @@ function renderNow(){
   $('clockWarn').innerHTML=w; $('clockWarn').style.display=w?'':'none';
 }
 
+/* Banner above the game list when this phone's clock and the voyage plan disagree */
+function renderResClockWarn(){
+  const el=$('resClockWarn'); if(!el) return;
+  const now=Date.now(), p=planOffsetAt(voy,chg(),now), devOff=deviceOffsetAt(now);
+  const gap=devOff-p.off;
+  let ok=null; try{ ok=localStorage.getItem('gtc_okGap'); }catch(e){}
+  if(TIME_SOURCE!=='device'||isNaN(p.off)||p.range!=='in'||gap===0||ok===String(gap)){ el.style.display='none'; el.innerHTML=''; return; }
+  const hrs=fmtOffset(Math.abs(gap)).replace(/^[+−]/,'')+(Math.abs(gap)===1?' hour':' hours');
+  const home=$('sZone').value, homeOff=home?zoneOffsetMs(home,now)/3600e3:NaN;
+  const why=devOff===homeOff?` It looks like this phone is still on <b>${esc(zl(home))}</b> home time.`:'';
+  el.innerHTML=`<b>⚠ Check these times.</b> This phone's clock is ${hrs} ${gap>0?'ahead of':'behind'} the voyage plan, and the game times below follow the phone.${why}`+
+    `<div class="btns" style="margin-top:8px"><button type="button" class="small primary" id="rcwPlan">Use voyage plan</button><button type="button" class="small" id="rcwOk">My phone is on ship time</button></div>`;
+  el.style.display='';
+  $('rcwPlan').onclick=()=>setSource('plan');
+  $('rcwOk').onclick=()=>{ try{ localStorage.setItem('gtc_okGap',String(gap)); }catch(e){} renderResClockWarn(); };
+}
+
 function setSource(t){ TIME_SOURCE=t; try{ localStorage.setItem('gtc_tsrc',t); }catch(e){} lastDigits=''; renderAll(); }
 $('srcDevice').onclick=()=>setSource('device');
 $('srcPlan').onclick=()=>setSource('plan');
@@ -1386,6 +1404,7 @@ function renderReport(){
   const R=buildReport();
   if(!R){ $('resCard').hidden=true; return; }
   $('resCard').hidden=false;
+  renderResClockWarn();
   $('resTitle').textContent=R.title;
   $('resOffset').textContent=R.offLine.join(' ');
   $('resHead').innerHTML='<tr>'+R.cols.map(c=>`<th>${esc(c.h)}</th>`).join('')+'<th></th></tr>';
