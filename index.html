@@ -924,6 +924,85 @@ function xlDate(s){
   if((m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?$/))) return {y:m[3]?(m[3].length===2?2000+ +m[3]:+m[3]):null,a:+m[1],b:+m[2]};
   return null;
 }
+/* ---- port of call -> local time zone ---- */
+const ZONE_BY_PLACE=[ // [keywords in the location, IANA zone] — checked first (countries with several zones, private islands)
+ [/tenerife|las palmas|gran canaria|lanzarote|arrecife|fuerteventura|la palma|la gomera|canary/i,'Atlantic/Canary'],
+ [/funchal|madeira/i,'Atlantic/Madeira'],[/ponta delgada|azores|horta|praia da vit/i,'Atlantic/Azores'],
+ [/juneau|ketchikan|skagway|sitka|icy strait|hoonah|whittier|seward|anchorage|haines|glacier bay|hubbard|endicott|tracy arm|college fjord/i,'America/Juneau'],
+ [/honolulu|kahului|maui|hilo|kona|nawiliwili|kauai|lahaina/i,'Pacific/Honolulu'],
+ [/seattle|los angeles|san pedro|long beach|san diego|san francisco|astoria|portland,? or/i,'America/Los_Angeles'],
+ [/new orleans|galveston|houston|mobile,? al|mobile$/i,'America/Chicago'],
+ [/vancouver|victoria,? bc|victoria \(bc|nanaimo|prince rupert/i,'America/Vancouver'],
+ [/st\.? john'?s|newfoundland|corner brook/i,'America/St_Johns'],
+ [/halifax|sydney,? ns|charlottetown|saint john,? nb|saint john$/i,'America/Halifax'],
+ [/quebec|montreal|saguenay|baie-comeau|gasp/i,'America/Toronto'],
+ [/cozumel|costa maya|mahahual|cancun|playa del carmen|calica|isla mujeres/i,'America/Cancun'],
+ [/progreso|merida/i,'America/Merida'],[/cabo san lucas|cabo|mazatlan|la paz,? b/i,'America/Mazatlan'],[/ensenada|tijuana/i,'America/Tijuana'],
+ [/puerto vallarta|acapulco|huatulco|manzanillo|puerto chiapas/i,'America/Mexico_City'],
+ [/great stirrup|nassau|freeport|bimini|half moon cay|coco cay|castaway|ocean cay|princess cays|celebration key|bahamas/i,'America/Nassau'],
+ [/harvest caye|belize/i,'America/Belize'],[/roatan|trujillo/i,'America/Tegucigalpa'],
+ [/port canaveral|canaveral|orlando|miami|fort lauderdale|port everglades|tampa|jacksonville|key west|new york|manhattan|brooklyn|cape liberty|bayonne|boston|baltimore|charleston|norfolk|portland,? me|bar harbor|newport,? ri|philadelphia/i,'America/New_York'],
+ [/puerto plata|amber cove|taino bay|samana|la romana|santo domingo|punta cana|catalina island/i,'America/Santo_Domingo'],
+ [/san juan|puerto rico/i,'America/Puerto_Rico'],[/st\.? thomas|charlotte amalie|st\.? croix|frederiksted/i,'America/St_Thomas'],
+ [/tortola|road town|virgin gorda|jost van dyke/i,'America/Tortola'],
+ [/grand cayman|george town,? cayman|cayman/i,'America/Cayman'],[/ocho rios|montego bay|falmouth|port royal|kingston,? jam/i,'America/Jamaica'],
+ [/st\.? maarten|sint maarten|philipsburg|marigot|st\.? martin/i,'America/Lower_Princes'],[/grand turk|turks/i,'America/Grand_Turk'],
+ [/bermuda|king'?s wharf|hamilton,? berm/i,'Atlantic/Bermuda'],[/aruba|oranjestad|curacao|curaçao|willemstad|bonaire|kralendijk/i,'America/Curacao'],
+ [/cartagena|santa marta/i,'America/Bogota'],[/colon|colón|panama|fuerte amador|cristobal/i,'America/Panama'],[/puerto limon|puerto limón|puntarenas|costa rica/i,'America/Costa_Rica'],
+ [/santo tomas de castilla|puerto quetzal|guatemala/i,'America/Guatemala']
+];
+const ZONE_BY_COUNTRY={
+ 'united states':'America/New_York','usa':'America/New_York','united states of america':'America/New_York',
+ 'dominican republic':'America/Santo_Domingo','puerto rico':'America/Puerto_Rico',
+ 'united states virgin islands':'America/St_Thomas','us virgin islands':'America/St_Thomas','u.s. virgin islands':'America/St_Thomas','usvi':'America/St_Thomas',
+ 'british virgin islands':'America/Tortola','bvi':'America/Tortola','bahamas':'America/Nassau','the bahamas':'America/Nassau',
+ 'jamaica':'America/Jamaica','cayman islands':'America/Cayman','honduras':'America/Tegucigalpa','belize':'America/Belize','guatemala':'America/Guatemala',
+ 'costa rica':'America/Costa_Rica','panama':'America/Panama','colombia':'America/Bogota','aruba':'America/Aruba','curacao':'America/Curacao','curaçao':'America/Curacao',
+ 'bonaire':'America/Kralendijk','barbados':'America/Barbados','saint lucia':'America/St_Lucia','st. lucia':'America/St_Lucia','st lucia':'America/St_Lucia',
+ 'antigua and barbuda':'America/Antigua','antigua':'America/Antigua','saint kitts and nevis':'America/St_Kitts','st. kitts and nevis':'America/St_Kitts','st kitts':'America/St_Kitts',
+ 'sint maarten':'America/Lower_Princes','st. maarten':'America/Lower_Princes','saint martin':'America/Marigot','grenada':'America/Grenada','dominica':'America/Dominica',
+ 'martinique':'America/Martinique','guadeloupe':'America/Guadeloupe','turks and caicos':'America/Grand_Turk','turks and caicos islands':'America/Grand_Turk',
+ 'bermuda':'Atlantic/Bermuda','haiti':'America/Port-au-Prince','cuba':'America/Havana','trinidad and tobago':'America/Port_of_Spain',
+ 'saint vincent and the grenadines':'America/St_Vincent','st. vincent':'America/St_Vincent','mexico':'America/Mexico_City','canada':'America/Toronto',
+ 'spain':'Europe/Madrid','portugal':'Europe/Lisbon','france':'Europe/Paris','monaco':'Europe/Monaco','italy':'Europe/Rome','greece':'Europe/Athens','croatia':'Europe/Zagreb',
+ 'montenegro':'Europe/Podgorica','malta':'Europe/Malta','turkey':'Europe/Istanbul','türkiye':'Europe/Istanbul','turkiye':'Europe/Istanbul','cyprus':'Asia/Nicosia',
+ 'gibraltar':'Europe/Gibraltar','germany':'Europe/Berlin','netherlands':'Europe/Amsterdam','belgium':'Europe/Brussels','united kingdom':'Europe/London','uk':'Europe/London',
+ 'england':'Europe/London','scotland':'Europe/London','ireland':'Europe/Dublin','norway':'Europe/Oslo','denmark':'Europe/Copenhagen','sweden':'Europe/Stockholm',
+ 'finland':'Europe/Helsinki','estonia':'Europe/Tallinn','latvia':'Europe/Riga','lithuania':'Europe/Vilnius','poland':'Europe/Warsaw','iceland':'Atlantic/Reykjavik',
+ 'faroe islands':'Atlantic/Faroe','albania':'Europe/Tirane','slovenia':'Europe/Ljubljana','morocco':'Africa/Casablanca','egypt':'Africa/Cairo','israel':'Asia/Jerusalem',
+ 'tunisia':'Africa/Tunis','brazil':'America/Sao_Paulo','argentina':'America/Argentina/Buenos_Aires','uruguay':'America/Montevideo','chile':'America/Santiago',
+ 'japan':'Asia/Tokyo','singapore':'Asia/Singapore','australia':'Australia/Sydney','new zealand':'Pacific/Auckland'
+};
+function portZone(loc,country){
+  loc=String(loc||''); const c=String(country||'').toLowerCase().replace(/\s+/g,' ').trim();
+  if(!loc||/at sea|cruising|scenic/i.test(loc)) return '';
+  for(const [re,z] of ZONE_BY_PLACE) if(z&&re.test(loc)) return z;
+  if(c&&ZONE_BY_COUNTRY[c]) return ZONE_BY_COUNTRY[c];
+  const k=Object.keys(ZONE_BY_COUNTRY).sort((a,b)=>b.length-a.length).find(k=>k.length>3&&(c.includes(k)||loc.toLowerCase().includes(k)));
+  return k?ZONE_BY_COUNTRY[k]:'';
+}
+function zoneOffsetOn(zone,dateStr){ // hours from UTC at noon on that date, e.g. -4
+  try{
+    const [Y,M,D]=dateStr.split('-').map(Number), d=new Date(Date.UTC(Y,M-1,D,16));
+    const n=new Intl.DateTimeFormat('en-US',{timeZone:zone,timeZoneName:'longOffset'}).formatToParts(d).find(p=>p.type==='timeZoneName').value;
+    const m=n.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/); if(!m) return 0;
+    return (m[1]==='-'?-1:1)*(+m[2]+(m[3]?+m[3]/60:0));
+  }catch(e){ return NaN; }
+}
+function adjustToPortTime(days,delta){
+  const out={ports:[],changed:0,unknown:[]};
+  let prev=NaN;
+  days.forEach((e,i)=>{
+    const sea=/at sea|cruising|scenic/i.test(e.port||''), z=sea?'':portZone(e.x&&e.x.loc||e.port,e.x&&e.x.country);
+    if(z){ const o=zoneOffsetOn(z,e.date);
+      if(!isNaN(o)){ if(!isNaN(e.off)&&o!==e.off) out.changed++; out.ports.push({port:(e.port||'').replace(/,.*$/,''),off:o}); e.off=o; e.zone=z; prev=o; return; } }
+    if(!sea&&e.port) out.unknown.push((e.port||'').replace(/,.*$/,''));
+    // sea days and ports without a known zone: follow the day before, plus any Time Change on this day
+    if(!isNaN(prev)){ const tc=delta&&e.x?xlOffset(e.x.tc):NaN; e.off=prev+(i>0&&!isNaN(tc)?tc:0); }
+    if(!isNaN(e.off)) prev=e.off;
+  });
+  return out;
+}
 const XL_HEAD={
   date:/\bdate\b|^day\s*\/\s*date|^fecha/i,
   port:/port|location|place|destination|itinerary|city|area/i,
@@ -1011,10 +1090,12 @@ function parseExcelItinerary(text,year){
   if(delta){ let run=NaN; days.forEach((e,i)=>{ const v=e.off; if(i===0||isNaN(run)) run=v; else if(!isNaN(v)) run+=v; else e.filled=true; e.off=run; }); days.forEach(e=>{ if(isNaN(e.off)) e.filled=false; }); }
   // fill gaps in the UTC column from the day before (only after a known value)
   for(let i=1;i<days.length;i++) if(isNaN(days[i].off)&&!isNaN(days[i-1].off)) { days[i].off=days[i-1].off; days[i].filled=true; }
+  // ship time in port follows the local time of the port's country (uses the device's time-zone rules, DST included)
+  const adj=adjustToPortTime(days,delta);
   const note=nums.length&&!dm&&!md?' Dates read as month/day.':(order==='DM'&&nums.length?' Dates read as day/month.':'');
   let name='';
   if(col&&col.cruise!=null){ const ids=[...new Set(rows.slice(start).map(r=>(r[col.cruise]||'').trim()).filter(x=>/\w{4,}/.test(x)))]; const ports=days.filter(e=>!/at sea/i.test(e.port)).map(e=>e.port.replace(/,.*$/,'')); name=(ids.length?'Cruise '+ids.join(' + ')+' · ':'Itinerary · ')+(ports.length?ports[0]+' → '+ports[ports.length-1]:''); }
-  return {days,note,header:!!col,name,delta};
+  return {days,note,header:!!col,name,delta,adj};
 }
 const XL_COLS=['Cruise','Date','Week Day','Day','Location','Country','Arrival Time','Departure Time','Time Change'];
 const WD3=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MONC=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1050,7 +1131,7 @@ let xlTimer=null;
 function runExcelPaste(fromPaste){
   const t=$('xlText').value; if(!t.trim()){ setMsg('xlMsg','',''); return; }
   const y=inferYear(t)||+$('year').value||new Date().getFullYear();
-  const {days,note,name:nm,delta}=parseExcelItinerary(t,y); const name=nm||'Itinerary (pasted from Excel)';
+  const {days,note,name:nm,delta,adj}=parseExcelItinerary(t,y); const name=nm||'Itinerary (pasted from Excel)';
   if(days.length<1){ setMsg('xlMsg','bad','No itinerary rows found. Copy the rows from Excel including the <b>Date</b> column (and the header row if you can).'); return; }
   days.forEach(e=>{ if(!e.ships){ const o=voy.find(v=>v.date===e.date&&v.ships&&(v.port||'').split(',')[0].toLowerCase()===(e.port||'').split(',')[0].toLowerCase()); if(o) e.ships=o.ships; } });
   let kept=0; const vref=srcVoy?srcVoy.days:[]; days.forEach(e=>{ if(isNaN(e.off)){ const o=vref.find(v=>v.date===e.date&&v.off!=null&&!isNaN(v.off)); if(o){ e.off=+o.off; kept++; } } });
@@ -1061,7 +1142,7 @@ function runExcelPaste(fromPaste){
   const r=setVoySource('itin',days,name); renderAll(); setMsg('voyMsg','','');
   setMsg('xlMsg',bad?'warn':'ok',`✓ Itinerary: loaded <b>${days.length}</b> days (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
     (bad?` <b>${bad}</b> day(s) before the first time change have no UTC yet — fill the red cells below.`:'')+
-    (delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':'')+(kept?` ${kept} day(s) without a time change use the UTC from the voyage plan.`:'')+(srcVoy?` Combined with the voyage plan: <b>${r.list.length}</b> days.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
+    (adj&&adj.ports.length?` Ship time in port set to local time of each port’s country (${[...new Map(adj.ports.map(p=>[p.port,p])).values()].slice(0,6).map(p=>esc(p.port)+' '+fmtOffset(p.off)).join(', ')}${adj.ports.length>6?', …':''}).`+(adj.changed?` <b>${adj.changed}</b> day(s) differ from the Time Change column.`:''):(delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':''))+(adj&&adj.unknown.length?` Local time not known for ${esc([...new Set(adj.unknown)].join(', '))} — Time Change column used.`:'')+(kept?` ${kept} day(s) without a time change use the UTC from the voyage plan.`:'')+(srcVoy?` Combined with the voyage plan: <b>${r.list.length}</b> days.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
 }
 let xlPasting=false;
 $('xlText').addEventListener('dragover',e=>{ e.preventDefault(); $('xlText').classList.add('over'); });
