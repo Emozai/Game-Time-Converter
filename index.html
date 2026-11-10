@@ -222,6 +222,9 @@
   .adminbar{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:9px 14px;font-size:13.5px;margin-bottom:14px}
   .adminbar a{color:inherit;font-weight:700}
   .banner{display:flex;gap:12px;align-items:center;background:#3B2A05;color:#FFE7A3;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:15px}
+  .banner.dualb{background:#0b3a5b;color:#d9f0ff}
+  .banner.dualb a{color:#fff;font-weight:700}
+  .notifybar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 2px;font-size:13px}
   .banner.info{background:var(--accent-soft);color:var(--ink)}
   .banner .bi{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.14)}
   .banner b{font-weight:700}
@@ -296,6 +299,7 @@
 
 <main class="wrap">
   <div id="chgBanner" class="banner" hidden></div>
+  <div id="dualBanner" class="banner dualb" hidden></div>
   <div id="clockWarn" class="msg warn" style="margin:0 0 16px"></div>
 
   <section class="card next" id="nextCard" hidden>
@@ -319,6 +323,7 @@
   <section class="card" id="dualCard" hidden>
     <h2 style="margin:0 0 4px">🚢 NCL ships in port</h2>
     <div class="muted" style="font-size:13.5px">Dual calls — other Norwegian Cruise Line ships at the same port on the same day. Tap a ship for its live position.</div>
+    <div class="notifybar"><span class="muted" id="notifyState"></span><button class="small" id="notifyBtn">🔔 Notify me of dual calls</button></div>
     <div id="dualBody"></div>
   </section>
 
@@ -1019,6 +1024,7 @@ function runExcelPaste(fromPaste){
   days.forEach(e=>{ if(!e.ships){ const o=voy.find(v=>v.date===e.date&&v.ships&&(v.port||'').split(',')[0].toLowerCase()===(e.port||'').split(',')[0].toLowerCase()); if(o) e.ships=o.ships; } });
   let kept=0; days.forEach(e=>{ if(isNaN(e.off)){ const o=voy.find(v=>v.date===e.date&&!isNaN(v.off)); if(o){ e.off=o.off; kept++; } } });
   const filled=days.filter(e=>e.filled).length, bad=days.filter(e=>isNaN(e.off)).length;
+  const dc=days.filter(e=>e.ships&&e.ships.trim()).length; if(dc&&fromPaste) setTimeout(()=>toast(`🚢 ${dc} dual call${dc>1?'s':''} on this itinerary`),300);
   xlClean=cleanItinerary(days,delta); renderClean(); if(fromPaste){ $('xlText').value=cleanTsv(); } store.set('xlClean',xlClean);
   days.forEach(e=>{ delete e.filled; delete e.x; });
   $('year').value=+days[0].date.slice(0,4); store.set('year',+days[0].date.slice(0,4));
@@ -1750,7 +1756,7 @@ function renderHeaderInfo(){
   else tk.hidden=true;
 }
 
-setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); renderHeaderInfo(); },30000);
+setInterval(()=>{ renderNext(); renderBanner(); renderDualBanner(); renderPosition(); renderHeaderInfo(); },30000);
 
 /* ---- NCL ships in port (dual calls) ---- */
 const NCL_FLEET=['Norwegian Aqua','Norwegian Luna','Norwegian Prima','Norwegian Viva','Norwegian Encore','Norwegian Bliss','Norwegian Joy','Norwegian Escape','Norwegian Getaway','Norwegian Breakaway','Norwegian Epic','Norwegian Gem','Norwegian Jade','Norwegian Pearl','Norwegian Jewel','Norwegian Dawn','Norwegian Star','Norwegian Sun','Norwegian Sky','Norwegian Spirit','Pride of America'];
@@ -1783,7 +1789,62 @@ function renderDual(){
     return `<div class="dual-day${isToday?' now':''}"><div class="dh"><span>${esc(e.port||'Port')}</span><span class="muted">${isToday?'<span class="tag today">today</span> ':''}${fmtDate(Y,M,D,wd,true)}</span></div>${ours}${others}</div>`;
   }).join('');
 }
-function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderDual(); renderHeaderInfo(); }
+
+/* ---- dual-call notifications: on-page banner + device notification (day before & morning of) ---- */
+function dualCalls(){
+  const now=Date.now(), s=shipLocal(voy,chg(),now), today=isNaN(s.off)?'':ymd(s.y,s.mo,s.d);
+  return voy.filter(e=>e.ships&&e.ships.trim()&&e.port&&!/at sea/i.test(e.port)&&e.date>=today).sort((a,b)=>a.date<b.date?-1:1)
+    .map(e=>{ const [Y,M,D]=e.date.split('-').map(Number); const off=isNaN(e.off)?(isNaN(s.off)?0:s.off):e.off;
+      const days=Math.round((Date.UTC(Y,M-1,D)-Date.UTC(s.y,s.mo-1,s.d))/864e5);
+      return {e,Y,M,D,days,ships:parseShips(e.ships).map(x=>x.name),dayStart:Date.UTC(Y,M-1,D)-off*3600e3}; });
+}
+function dualWhen(c){ const wd=new Date(Date.UTC(c.Y,c.M-1,c.D)).getUTCDay(); return c.days===0?'today':c.days===1?'tomorrow':`${WDL[wd]} ${c.D} ${MON(c.M)} (in ${c.days} days)`; }
+function renderDualBanner(){
+  const el=$('dualBanner'); const all=dualCalls(), c=all.find(x=>x.days<=3);
+  if(!c){ el.hidden=true; return; }
+  const more=all.filter(x=>x!==c).length;
+  el.innerHTML=`<span class="bi" aria-hidden="true">🚢</span><div><b>Dual call ${dualWhen(c)} in ${esc(c.e.port)}</b> — ${esc(c.ships.join(', '))} ${c.ships.length>1?'are':'is'} also in port${c.e.arr?` (we arrive ${fmtTime(+c.e.arr.slice(0,2),+c.e.arr.slice(3),$('h24').checked)})`:''}.`+
+    `${more?` <span style="opacity:.85">${more} more dual call${more>1?'s':''} on this itinerary.</span>`:''} <a href="#dualCard">See ships ↓</a></div>`;
+  el.hidden=false;
+}
+function notifyOn(){ return 'Notification' in window&&Notification.permission==='granted'&&store.get('dualNotify',false); }
+function renderNotifyState(){
+  const b=$('notifyBtn'), st=$('notifyState');
+  b.hidden=false;
+  if(!('Notification' in window)){ b.hidden=true; st.textContent='This browser can’t show notifications. Dual calls still show at the top of the page.'; return; }
+  if(Notification.permission==='denied'){ b.hidden=true; st.textContent='Notifications are blocked for this site in your browser settings.'; return; }
+  const on=notifyOn(); b.textContent=on?'🔕 Turn off notifications':'🔔 Notify me of dual calls';
+  st.textContent=on?'You’ll get a notification the evening before and the morning of each dual call (when the app is open or running).':'';
+}
+async function showNote(title,body,tag){
+  try{ const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+    if(reg&&reg.showNotification){ await reg.showNotification(title,{body,tag,icon:'icons/icon-192.png',badge:'icons/favicon-32.png'}); return; } }catch(e){}
+  try{ new Notification(title,{body,tag,icon:'icons/icon-192.png'}); }catch(e){}
+}
+function checkDualNotify(){
+  if(!notifyOn()) return;
+  const sent=store.get('dualSent',{})||{}, now=Date.now(), s=shipLocal(voy,chg(),now), hr=s.h;
+  for(const c of dualCalls()){
+    const key=c.e.date+'|'+c.e.port+'|'+c.ships.join(',');
+    const txt=`${c.ships.join(', ')} ${c.ships.length>1?'are':'is'} also in ${c.e.port}`+(c.e.arr?` · we arrive ${c.e.arr}`:'')+(c.e.dep?`, depart ${c.e.dep}`:'')+' (ship time).';
+    if(c.days===1&&hr>=18&&!sent[key+'|eve']){ sent[key+'|eve']=now; showNote('🚢 Dual call tomorrow — '+c.e.port,txt,'dual-'+c.e.date); }
+    if(c.days===0&&hr>=6&&!sent[key+'|day']){ sent[key+'|day']=now; showNote('🚢 Dual call today — '+c.e.port,txt,'dual-'+c.e.date); }
+  }
+  for(const k of Object.keys(sent)) if(now-sent[k]>14*864e5) delete sent[k];
+  store.set('dualSent',sent);
+}
+$('notifyBtn').onclick=async()=>{
+  if(notifyOn()){ store.set('dualNotify',false); renderNotifyState(); toast('Dual-call notifications off'); return; }
+  let p=Notification.permission; if(p!=='granted'){ try{ p=await Notification.requestPermission(); }catch(e){} }
+  if(p==='granted'){ store.set('dualNotify',true); const c=dualCalls()[0];
+    showNote('🚢 Dual-call notifications on', c?`Next: ${c.e.port}, ${dualWhen(c)} — ${c.ships.join(', ')}.`:'You’ll be told about dual calls on the itinerary.','dual-on');
+    checkDualNotify(); }
+  renderNotifyState();
+};
+setInterval(checkDualNotify,5*60e3);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ renderDualBanner(); checkDualNotify(); } });
+
+function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderDual(); renderDualBanner(); renderNotifyState(); checkDualNotify(); renderHeaderInfo(); }
 renderAll();
 loadSiteData();
 setInterval(renderNow,20000);

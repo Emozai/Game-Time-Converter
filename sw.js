@@ -1,6 +1,6 @@
 /* Game Time Converter — offline support.
    Bump VERSION whenever index.html changes so phones pick up the update. */
-const VERSION = 'gtc-v16';
+const VERSION = 'gtc-v17';
 const CORE = [
   './',
   './index.html',
@@ -50,4 +50,13 @@ self.addEventListener('fetch', event => {
       return res;
     }))
   );
+});
+
+// tapping a dual-call notification opens the app
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow('./#dualCard');
+  }));
 });
