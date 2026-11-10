@@ -1,6 +1,6 @@
 /* Game Time Converter — offline support.
    Bump VERSION whenever index.html changes so phones pick up the update. */
-const VERSION = 'gtc-v18';
+const VERSION = 'gtc-v19';
 const CORE = [
   './',
   './index.html',
@@ -31,6 +31,7 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;           // fonts etc.: let the browser handle them
+  if (url.pathname.startsWith('/api/')) return;         // live lookups (dual calls): always from the network
 
   // Page and voyage data: try the network first so updates arrive, fall back to the saved copy offline.
   if (req.mode === 'navigate' || url.pathname.endsWith('/site-data.json') || url.pathname.endsWith('/index.html')) {

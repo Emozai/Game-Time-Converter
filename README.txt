@@ -4,6 +4,9 @@ GAME TIME CONVERTER
 WHAT'S IN THIS FOLDER
   index.html        The website (open this page)
   site-data.json    The current voyage plan + game schedule everyone sees
+  _worker.js        Built-in NCL dual-call lookup (reads CruiseMapper.com).
+                    Keep it in the folder: Cloudflare Pages runs it
+                    automatically when you drag and drop the folder or zip.
   lib/              PDF reader, so voyage-plan PDFs load with no internet
   README.txt        This file
 

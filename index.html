@@ -367,7 +367,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <div><label for="year">Voyage year</label><input id="year" type="number" min="2020" max="2100"></div>
         <div><label for="chg">Clocks change at (ship time)</label><input id="chg" type="time" value="02:00"></div>
       </div>
-      <div class="row" style="margin:0 0 10px"><div><label for="dualSvc">NCL dual-call lookup (Cloudflare Worker link, reads CruiseMapper.com)</label><input id="dualSvc" placeholder="https://ncl-dualcalls.….workers.dev"></div></div>
+      <div class="row" style="margin:0 0 10px"><div><label for="dualSvc">NCL dual-call lookup (built into this site — reads CruiseMapper.com; leave as is)</label><input id="dualSvc" placeholder="/api/dualcalls"></div></div>
       <div class="row" style="margin:0 0 10px"><div><label for="trackUrl">Live tracker link (CruiseMapper page for your ship)</label><input id="trackUrl" placeholder="https://www.cruisemapper.com/ships/…"></div></div>
       <div class="voy"><table>
         <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th title="Other NCL ships in the same port that day">NCL in port (dual call)</th><th></th></tr></thead>
@@ -1776,9 +1776,9 @@ function parseShips(txt){
 }
 function liveLink(name){ return 'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(name.toUpperCase()); }
 /* ---- automatic NCL dual calls from CruiseMapper (through the lookup worker) ---- */
-const DUAL_SVC_DEFAULT='https://ncl-dualcalls.emozailanada.workers.dev';
-$('dualSvc').value=store.get('dualSvc',DUAL_SVC_DEFAULT);
-$('dualSvc').addEventListener('change',()=>{ store.set('dualSvc',$('dualSvc').value.trim()); store.set('dualAuto',{}); dualAuto={}; fetchDualAuto(true); });
+const DUAL_SVC_DEFAULT=/^https?:$/.test(location.protocol)?location.origin+'/api/dualcalls':'';
+{ const sv=store.get('dualSvc',''); $('dualSvc').value=(!sv||/ncl-dualcalls\.emozailanada\.workers\.dev/.test(sv))?DUAL_SVC_DEFAULT:sv; }
+$('dualSvc').addEventListener('change',()=>{ if(!$('dualSvc').value.trim()) $('dualSvc').value=DUAL_SVC_DEFAULT; store.set('dualSvc',$('dualSvc').value.trim()===DUAL_SVC_DEFAULT?'':$('dualSvc').value.trim()); store.set('dualAuto',{}); dualAuto={}; fetchDualAuto(true); });
 let dualAuto=store.get('dualAuto',{})||{};      // "portkey|YYYY-MM" -> {ts, ok, url, calls:[{date,ship,arr,dep}], err}
 let dualState={busy:false,last:0,err:''};
 const portKey=p=>String(p||'').toLowerCase().replace(/\(.*?\)/g,' ').replace(/,.*$/,'').replace(/\s+/g,' ').trim();

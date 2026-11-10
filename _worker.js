@@ -1,11 +1,15 @@
-/* NCL dual-call lookup — Cloudflare Worker
+/* Game Time Converter — Cloudflare Pages worker (_worker.js)
+   Serves the website as usual, plus /api/dualcalls: the NCL dual-call lookup.
+   Upload this file together with the rest of the site (drag and drop works).
+
+   NCL dual-call lookup
    Reads a port's monthly cruise ship schedule from CruiseMapper.com and returns only
    Norwegian Cruise Line ships, so the Game Time Converter can show dual calls.
    Source: CruiseMapper.com (credited on the site). Results are cached for 6 hours.
 
-   GET /?port=Puerto%20Plata&month=2026-11            → NCL ships in that port that month
-   GET /?port=...&month=...&id=1936                    → use a known CruiseMapper port id
-   GET /?port=...&month=...&debug=1                    → also return a text sample (troubleshooting)
+   GET /api/dualcalls?port=Puerto%20Plata&month=2026-11   → NCL ships in that port that month
+   GET /api/dualcalls?port=...&month=...&id=1936          → use a known CruiseMapper port id
+   GET /api/dualcalls?port=...&month=...&debug=1          → also return a text sample (troubleshooting)
    Made by JVL - Broadcast */
 
 const NCL_FLEET = ['Norwegian Aqua','Norwegian Luna','Norwegian Prima','Norwegian Viva','Norwegian Encore','Norwegian Bliss',
@@ -90,8 +94,7 @@ function parseSchedule(text, month) {
   return { rows, calls: calls.filter(c => { const k = c.date + c.ship; if (seen.has(k)) return false; seen.add(k); return true; }) };
 }
 
-export default {
-  async fetch(request) {
+async function lookup(request) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
     const u = new URL(request.url);
     const port = (u.searchParams.get('port') || '').trim();
@@ -118,5 +121,15 @@ export default {
     const out = { ok: true, port, month, id, url: pageUrl, rows, calls, cached, source: 'CruiseMapper.com', checked: Date.now() };
     if (u.searchParams.get('debug')) out.sample = text.slice(text.search(/\d{1,2}\s+[A-Z][a-z]+,\s+\d{4}/), 1500);
     return json(out, 200, { 'Cache-Control': 'public, max-age=1800' });
+  }
+
+export default {
+  async fetch(request, env) {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/dualcalls' || path.startsWith('/api/dualcalls/')) {
+      try { return await lookup(request); }
+      catch (e) { return json({ ok: false, error: 'Lookup failed: ' + (e && e.message || e), source: 'CruiseMapper.com' }, 500); }
+    }
+    return env.ASSETS.fetch(request);   // everything else: the normal website files
   }
 };
