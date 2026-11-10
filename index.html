@@ -154,15 +154,6 @@
   .voy td.off input{width:70px;font-family:var(--mono);text-align:center}
   .voy tr.change td{background:var(--accent-soft)}
   .voy tr.today td{box-shadow:inset 3px 0 0 var(--ok)}
-  .dual-day{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
-  .dual-day.now{border-color:var(--accent);background:var(--accent-soft)}
-  .dual-day .dh{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:600}
-  .dual-ship{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--line);flex-wrap:wrap}
-  .dual-ship:first-of-type{border-top:0}
-  .dual-ship a{font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap}
-  .dual-ship .st{font-size:12px}
-  .tag.dual{background:var(--warn-soft);color:var(--warn)}
-  td input.ships{min-width:170px}
   .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
   .tag.chg{background:var(--accent);color:#fff}
   .tag.today{background:var(--ok);color:#fff}
@@ -227,9 +218,6 @@
   .adminbar{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:9px 14px;font-size:13.5px;margin-bottom:14px}
   .adminbar a{color:inherit;font-weight:700}
   .banner{display:flex;gap:12px;align-items:center;background:#3B2A05;color:#FFE7A3;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:15px}
-  .banner.dualb{background:#0b3a5b;color:#d9f0ff}
-  .banner.dualb a{color:#fff;font-weight:700}
-  .notifybar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 2px;font-size:13px}
   .banner.info{background:var(--accent-soft);color:var(--ink)}
   .banner .bi{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.14)}
   .banner b{font-weight:700}
@@ -304,8 +292,6 @@
 
 <main class="wrap">
   <div id="chgBanner" class="banner" hidden></div>
-  <div id="dualBanner" class="banner dualb" hidden></div>
-  <div class="notifybar" id="notifyRow" hidden style="margin:-8px 0 16px"><span class="muted" id="notifyState"></span><button class="small" id="notifyBtn">🔔 Notify me of dual calls</button></div>
   <div id="clockWarn" class="msg warn" style="margin:0 0 16px"></div>
 
   <section class="card next" id="nextCard" hidden>
@@ -374,7 +360,6 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
       <div class="btns" style="margin-top:10px">
         <button class="small" id="addDay">+ Add day</button>
       </div>
-      <datalist id="nclFleet"></datalist>
       <p class="hint">On a day whose offset differs from the day before, the change happens at the time above (default 02:00 ship time, the night going into that day).</p>
     </section>
 
@@ -862,7 +847,7 @@ function renderVoy(){
     const prev=voy[i-1]; const changed=prev&&!isNaN(e.off)&&!isNaN(prev.off)&&e.off!==prev.off;
     const diff=changed?e.off-prev.off:0;
     const badge=changed?`<span class="tag chg">${diff<0?'⟲ '+Math.abs(diff)+' hr back':'⟳ '+diff+' hr fwd'}</span>`:'';
-    const tb=(e.date===today?' <span class="tag today">today</span>':'')+(shipsFor(e).length?' <span class="tag dual">dual call</span>':'');
+    const tb=(e.date===today?' <span class="tag today">today</span>':'');
     return `<tr class="${changed?'change':''} ${e.date===today?'today':''}">
       <td><input type="date" data-i="${i}" data-k="date" value="${e.date}"></td>
       <td><input data-i="${i}" data-k="port" value="${esc(e.port||'')}"></td>
@@ -900,7 +885,7 @@ function applyVoyage(list,name,text){
   const r=setVoySource('voy',list,name);
   const bad=list.filter(e=>isNaN(e.off)).length;
   setMsg('voyMsg',bad?'warn':'ok',`Voyage plan: read <b>${list.length}</b> days (${list[0].date} → ${list[list.length-1].date}).`+(bad?` <b>${bad}</b> day(s) had no readable UTC offset (marked red) — please fill them in.`:' Please check the UTC column against the PDF.')+(srcItin?` Combined with the itinerary: <b>${r.list.length}</b> days.`:''));
-  renderAll(); setTimeout(()=>fetchDualAuto(false),200);
+  renderAll();
 }
 $('voyParse').onclick=()=>{
   const t=$('voyText').value; const y=inferYear(t)||+$('year').value||new Date().getFullYear(); $('year').value=y; store.set('year',y);
@@ -944,7 +929,6 @@ const XL_HEAD={
   port:/port|location|place|destination|itinerary|city|area/i,
   arr:/\barr|eta\b|arrival|\bin\b|alongside/i,
   dep:/\bdep|etd\b|departure|sail|\bout\b/i,
-  ships:/dual|other\s*(ncl\s*)?ships?|ncl\s*ships?|ships?\s*in\s*port|also\s*in\s*port|sister/i,
   chg:/time\s*change|clock\s*change|^change$|time\s*diff|clocks?\s*(fwd|back|adj)/i,
   off:/utc|gmt|time\s*zone|\btz\b|zone|offset|ship\s*time|clock/i
 };
@@ -962,7 +946,7 @@ function parseExcelItinerary(text,year){
       if(c.country==null&&/^country/i.test(v)){ c.country=j; return; }
       if(c.wd==null&&/^week\s*day$|^weekday$|^dow$/i.test(v.trim())) c.wd=j;
       if(c.dayno==null&&/^day(\s*(no\.?|#))?$/i.test(v.trim())) c.dayno=j;
-      for(const k of ['ships','chg','off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard|berth|pier|method|week/i.test(v)){ c[k]=j; break; } } });
+      for(const k of ['chg','off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard|berth|pier|method|week/i.test(v)){ c[k]=j; break; } } });
     if(c.date!=null&&Object.keys(c).length>=2){ col=c; start=i+1; hdr=r; break; }
   }
   // no UTC column: look for a column of whole hours (e.g. -5, 1, 0) — absolute UTC or clock changes
@@ -1071,11 +1055,10 @@ function runExcelPaste(fromPaste){
   days.forEach(e=>{ if(!e.ships){ const o=voy.find(v=>v.date===e.date&&v.ships&&(v.port||'').split(',')[0].toLowerCase()===(e.port||'').split(',')[0].toLowerCase()); if(o) e.ships=o.ships; } });
   let kept=0; const vref=srcVoy?srcVoy.days:[]; days.forEach(e=>{ if(isNaN(e.off)){ const o=vref.find(v=>v.date===e.date&&v.off!=null&&!isNaN(v.off)); if(o){ e.off=+o.off; kept++; } } });
   const filled=days.filter(e=>e.filled).length, bad=days.filter(e=>isNaN(e.off)).length;
-  const dc=days.filter(e=>e.ships&&e.ships.trim()).length; if(dc&&fromPaste) setTimeout(()=>toast(`🚢 ${dc} dual call${dc>1?'s':''} on this itinerary`),300);
   xlClean=cleanItinerary(days,delta); renderClean(); if(fromPaste){ $('xlText').value=cleanTsv(); } store.set('xlClean',xlClean);
   days.forEach(e=>{ delete e.filled; delete e.x; });
   $('year').value=+days[0].date.slice(0,4); store.set('year',+days[0].date.slice(0,4));
-  const r=setVoySource('itin',days,name); renderAll(); setMsg('voyMsg','',''); setTimeout(()=>fetchDualAuto(false),200);
+  const r=setVoySource('itin',days,name); renderAll(); setMsg('voyMsg','','');
   setMsg('xlMsg',bad?'warn':'ok',`✓ Itinerary: loaded <b>${days.length}</b> days (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
     (bad?` <b>${bad}</b> day(s) before the first time change have no UTC yet — fill the red cells below.`:'')+
     (delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':'')+(kept?` ${kept} day(s) without a time change use the UTC from the voyage plan.`:'')+(srcVoy?` Combined with the voyage plan: <b>${r.list.length}</b> days.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
@@ -1724,7 +1707,6 @@ function renderVoySummary(){
   const nextPort=v.find(e=>e.date>(today||'')&&e.port&&!/at sea/i.test(e.port));
   $('voySumBody').innerHTML=`<div style="font-weight:600;color:var(--ink)">${esc(voyName||'Voyage plan')}</div>
     <div style="margin-top:6px">Today: <b style="color:var(--ink)">${esc(td?(td.port||'—'):'outside the voyage dates')}</b>${isNaN(s.off)?'':` · ship time UTC ${fmtOffset(s.off)}`}</div>
-    ${td&&shipsFor(td).length?`<div>Dual call: <b style="color:var(--ink)">${esc(shipsFor(td).map(x=>x.name).join(', '))}</b> also in port</div>`:''}
     ${nextPort?`<div>Next port: <b style="color:var(--ink)">${esc(nextPort.port)}</b> · ${fmtDate(+nextPort.date.slice(0,4),+nextPort.date.slice(5,7),+nextPort.date.slice(8,10),new Date(nextPort.date+'T00:00:00Z').getUTCDay(),true)}</div>`:''}
     <div class="hint" style="margin-top:8px">${first.date} → ${last.date} · times follow the official voyage plan</div>`;
 }
@@ -1878,133 +1860,9 @@ function renderHeaderInfo(){
   else tk.hidden=true;
 }
 
-setInterval(()=>{ renderNext(); renderBanner(); renderDualBanner(); renderPosition(); renderHeaderInfo(); },30000);
+setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); renderHeaderInfo(); },30000);
 
-/* ---- NCL ships in port (dual calls) ---- */
-const NCL_FLEET=['Norwegian Aqua','Norwegian Luna','Norwegian Prima','Norwegian Viva','Norwegian Encore','Norwegian Bliss','Norwegian Joy','Norwegian Escape','Norwegian Getaway','Norwegian Breakaway','Norwegian Epic','Norwegian Gem','Norwegian Jade','Norwegian Pearl','Norwegian Jewel','Norwegian Dawn','Norwegian Star','Norwegian Sun','Norwegian Sky','Norwegian Spirit','Pride of America'];
-$('nclFleet').innerHTML=NCL_FLEET.map(n=>`<option value="${n}">`).join('');
-function parseShips(txt){
-  return String(txt||'').split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean).map(raw=>{
-    const t=raw.match(/(\d{1,2}[:.]?\d{2})\s*[-–to]+\s*(\d{1,2}[:.]?\d{2})/i);
-    const hm=x=>{ x=x.replace('.',':'); if(!x.includes(':')) x=x.slice(0,-2)+':'+x.slice(-2); const [h,m]=x.split(':').map(Number); return pad(h)+':'+pad(m); };
-    let name=(t?raw.slice(0,t.index):raw).replace(/\b(pier|berth|p\d|ct\s*\d|terminal).*$/i,'').trim();
-    const rest=(t?raw.slice(t.index+t[0].length):'').trim();
-    const nl=name.toLowerCase(); const hit=NCL_FLEET.find(f=>f.toLowerCase()===nl)||NCL_FLEET.find(f=>f.toLowerCase().replace('norwegian ','')===nl.replace(/^(ncl|norwegian)\s*/,''));
-    if(hit) name=hit;
-    return {name,arr:t?hm(t[1]):'',dep:t?hm(t[2]):'',note:(rest||(t?'':raw.slice(name.length))).replace(/^[\s,·-]+/,'').trim(),raw};
-  });
-}
-function liveLink(name){ return 'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(name.toUpperCase()); }
-/* ---- automatic NCL dual calls from CruiseMapper (through the lookup worker) ---- */
-const DUAL_SVC_DEFAULT=/^https?:$/.test(location.protocol)?location.origin+'/api/dualcalls':'';
-let dualAuto=store.get('dualAuto',{})||{};      // "portkey|YYYY-MM" -> {ts, ok, url, calls:[{date,ship,arr,dep}], err}
-let dualState={busy:false,last:0,err:''};
-const portKey=p=>String(p||'').toLowerCase().replace(/\(.*?\)/g,' ').replace(/,.*$/,'').replace(/\s+/g,' ').trim();
-function ownShipName(){ return ($('rShip').value||'Norwegian Escape').trim(); }
-function autoFor(e){
-  const g=dualAuto[portKey(e.port)+'|'+e.date.slice(0,7)]; if(!g||!g.ok) return [];
-  const own=ownShipName().toLowerCase();
-  return g.calls.filter(c=>c.date===e.date&&c.ship.toLowerCase()!==own).map(c=>({name:c.ship,arr:c.arr||'',dep:c.dep||'',note:'',auto:true}));
-}
-function cmLinkFor(e){ const g=dualAuto[portKey(e.port)+'|'+e.date.slice(0,7)]; return g&&g.url?g.url:''; }
-/* all other NCL ships for a day: typed by hand + found on CruiseMapper (hand-typed details win) */
-function shipsFor(e){
-  if(!e||!e.port||/at sea|cruising|scenic/i.test(e.port)) return [];
-  const out=parseShips(e.ships||'');
-  for(const a of autoFor(e)){ const m=out.find(x=>x.name.toLowerCase()===a.name.toLowerCase()); if(m){ m.auto=true; if(!m.arr){m.arr=a.arr;m.dep=a.dep;} } else out.push(a); }
-  return out;
-}
-async function fetchDualAuto(force){
-  const svc=DUAL_SVC_DEFAULT; if(!svc||dualState.busy) return;
-  const now=Date.now(), s=shipLocal(voy,chg(),now), today=isNaN(s.off)?ymd(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate()):ymd(s.y,s.mo,s.d);
-  const groups={};
-  for(const e of voy){ if(!e.port||/at sea|cruising|scenic/i.test(e.port)||e.date<today) continue; const k=portKey(e.port)+'|'+e.date.slice(0,7); groups[k]=groups[k]||{port:e.port,month:e.date.slice(0,7)}; }
-  const todo=Object.entries(groups).filter(([k])=>force||!dualAuto[k]||now-dualAuto[k].ts>(dualAuto[k].ok?6:1)*3600e3);
-  if(!todo.length) return;
-  dualState.busy=true; dualState.err=''; renderDualSrc();
-  let fails=0;
-  for(const [k,g] of todo){
-    try{
-      const r=await fetch(`${svc}/?port=${encodeURIComponent(g.port)}&month=${g.month}`,{cache:'no-store'});
-      const j=await r.json().catch(()=>({}));
-      dualAuto[k]={ts:Date.now(),ok:!!j.ok,url:j.url||'',calls:Array.isArray(j.calls)?j.calls:[],err:j.ok?'':(j.error||('error '+r.status))};
-      if(!j.ok) fails++;
-    }catch(err){ fails++; if(!dualAuto[k]||!dualAuto[k].ok) dualAuto[k]={ts:Date.now(),ok:false,url:'',calls:[],err:'offline'}; else dualAuto[k].ts=Date.now()-5*3600e3; }
-  }
-  for(const k of Object.keys(dualAuto)) if(now-dualAuto[k].ts>40*864e5) delete dualAuto[k];
-  store.set('dualAuto',dualAuto); dualState.busy=false; dualState.last=Date.now();
-  dualState.err=fails===todo.length?'Couldn’t reach CruiseMapper right now — showing the last check and ships typed by hand.':(fails?`${fails} port(s) couldn’t be checked.`:'');
-  renderVoy(); renderDual(); renderDualBanner(); renderVoySummary(); checkDualNotify();
-}
-function renderDualSrc(){
-  const el=$('dualSrc'); if(!el) return;
-  const ts=Object.values(dualAuto).filter(g=>g.ok).map(g=>g.ts), latest=ts.length?Math.max(...ts):0;
-  el.innerHTML=(dualState.busy?'Checking CruiseMapper… ':'')+(latest?`NCL ships checked on CruiseMapper ${new Date(latest).toLocaleString([], {dateStyle:'medium',timeStyle:'short'})}. `:'')+
-    (dualState.err?`<span style="color:var(--warn)">${esc(dualState.err)}</span> `:'')+
-    `Source: <a href="https://www.cruisemapper.com" target="_blank" rel="noopener">CruiseMapper.com</a> · schedules can change, confirm with the ship's daily program. <button class="small" id="dualRefresh" style="margin-left:6px">↻ Check now</button>`;
-  const b=$('dualRefresh'); if(b) b.onclick=()=>fetchDualAuto(true);
-}
-setInterval(()=>fetchDualAuto(false),30*60e3);
-setTimeout(()=>fetchDualAuto(false),1500);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) fetchDualAuto(false); });
-
-function renderDual(){ /* NCL ships in port card removed */ }
-
-/* ---- dual-call notifications: on-page banner + device notification (day before & morning of) ---- */
-function dualCalls(){
-  const now=Date.now(), s=shipLocal(voy,chg(),now), today=isNaN(s.off)?'':ymd(s.y,s.mo,s.d);
-  return voy.filter(e=>e.date>=today&&shipsFor(e).length).sort((a,b)=>a.date<b.date?-1:1)
-    .map(e=>{ const [Y,M,D]=e.date.split('-').map(Number); const off=isNaN(e.off)?(isNaN(s.off)?0:s.off):e.off;
-      const days=Math.round((Date.UTC(Y,M-1,D)-Date.UTC(s.y,s.mo-1,s.d))/864e5);
-      return {e,Y,M,D,days,ships:shipsFor(e).map(x=>x.name),dayStart:Date.UTC(Y,M-1,D)-off*3600e3}; });
-}
-function dualWhen(c){ const wd=new Date(Date.UTC(c.Y,c.M-1,c.D)).getUTCDay(); return c.days===0?'today':c.days===1?'tomorrow':`${WDL[wd]} ${c.D} ${MON(c.M)} (in ${c.days} days)`; }
-function renderDualBanner(){
-  const el=$('dualBanner'); const all=dualCalls(), c=all.find(x=>x.days<=3);
-  if(!c){ el.hidden=true; $('notifyRow').hidden=!all.length; return; }
-  const more=all.filter(x=>x!==c).length;
-  el.innerHTML=`<span class="bi" aria-hidden="true">🚢</span><div><b>Dual call ${dualWhen(c)} in ${esc(c.e.port)}</b> — ${esc(c.ships.join(', '))} ${c.ships.length>1?'are':'is'} also in port${c.e.arr?` (we arrive ${fmtTime(+c.e.arr.slice(0,2),+c.e.arr.slice(3),$('h24').checked)})`:''}.`+
-    `${more?` <span style="opacity:.85">${more} more dual call${more>1?'s':''} on this itinerary.</span>`:''} </div>`;
-  el.hidden=false; $('notifyRow').hidden=false;
-}
-function notifyOn(){ return 'Notification' in window&&Notification.permission==='granted'&&store.get('dualNotify',false); }
-function renderNotifyState(){
-  const b=$('notifyBtn'), st=$('notifyState');
-  b.hidden=false;
-  if(!('Notification' in window)){ b.hidden=true; st.textContent='This browser can’t show notifications. Dual calls still show at the top of the page.'; return; }
-  if(Notification.permission==='denied'){ b.hidden=true; st.textContent='Notifications are blocked for this site in your browser settings.'; return; }
-  const on=notifyOn(); b.textContent=on?'🔕 Turn off notifications':'🔔 Notify me of dual calls';
-  st.textContent=on?'You’ll get a notification the evening before and the morning of each dual call (when the app is open or running).':'';
-}
-async function showNote(title,body,tag){
-  try{ const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
-    if(reg&&reg.showNotification){ await reg.showNotification(title,{body,tag,icon:'icons/icon-192.png',badge:'icons/favicon-32.png'}); return; } }catch(e){}
-  try{ new Notification(title,{body,tag,icon:'icons/icon-192.png'}); }catch(e){}
-}
-function checkDualNotify(){
-  if(!notifyOn()) return;
-  const sent=store.get('dualSent',{})||{}, now=Date.now(), s=shipLocal(voy,chg(),now), hr=s.h;
-  for(const c of dualCalls()){
-    const key=c.e.date+'|'+c.e.port+'|'+c.ships.join(',');
-    const txt=`${c.ships.join(', ')} ${c.ships.length>1?'are':'is'} also in ${c.e.port}`+(c.e.arr?` · we arrive ${c.e.arr}`:'')+(c.e.dep?`, depart ${c.e.dep}`:'')+' (ship time).';
-    if(c.days===1&&hr>=18&&!sent[key+'|eve']){ sent[key+'|eve']=now; showNote('🚢 Dual call tomorrow — '+c.e.port,txt,'dual-'+c.e.date); }
-    if(c.days===0&&hr>=6&&!sent[key+'|day']){ sent[key+'|day']=now; showNote('🚢 Dual call today — '+c.e.port,txt,'dual-'+c.e.date); }
-  }
-  for(const k of Object.keys(sent)) if(now-sent[k]>14*864e5) delete sent[k];
-  store.set('dualSent',sent);
-}
-$('notifyBtn').onclick=async()=>{
-  if(notifyOn()){ store.set('dualNotify',false); renderNotifyState(); toast('Dual-call notifications off'); return; }
-  let p=Notification.permission; if(p!=='granted'){ try{ p=await Notification.requestPermission(); }catch(e){} }
-  if(p==='granted'){ store.set('dualNotify',true); const c=dualCalls()[0];
-    showNote('🚢 Dual-call notifications on', c?`Next: ${c.e.port}, ${dualWhen(c)} — ${c.ships.join(', ')}.`:'You’ll be told about dual calls on the itinerary.','dual-on');
-    checkDualNotify(); }
-  renderNotifyState();
-};
-setInterval(checkDualNotify,5*60e3);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ renderDualBanner(); checkDualNotify(); } });
-
-function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderDual(); renderDualBanner(); renderNotifyState(); checkDualNotify(); renderHeaderInfo(); }
+function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderHeaderInfo(); }
 renderSources(); renderAll();
 loadSiteData();
 setInterval(renderNow,20000);
