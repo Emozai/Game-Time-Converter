@@ -175,6 +175,13 @@
   .xl{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--accent-soft)}
   .xlhead{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
   .xlhead b{color:var(--accent)}
+  .xlbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 6px;flex-wrap:wrap}
+  .xltbl{overflow:auto;max-height:340px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+  .xltbl table{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+  .xltbl th{position:sticky;top:0;background:var(--navy);color:#fff;font-weight:600;text-align:left;padding:6px 8px}
+  .xltbl td{padding:5px 8px;border-top:1px solid var(--line)}
+  .xltbl tr.sea td{color:var(--muted);background:var(--accent-soft)}
+  .xltbl td.tchg{font-weight:700;color:var(--warn)}
   #xlText{min-height:96px;font-family:var(--mono);font-size:12.5px;white-space:pre;overflow:auto}
   .toggle{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);font-weight:500;margin:0}
   .toggle input{width:auto}
@@ -321,10 +328,14 @@
       <div id="clearConfirm" class="msg warn" hidden>Remove the loaded voyage plan? <button class="small" id="clearYes">Yes, clear it</button> <button class="small" id="clearNo">Cancel</button></div>
       <div id="voyMsg" class="msg"></div>
       <div class="xl" id="xlBox">
-        <div class="xlhead"><b>📋 Paste itinerary from Excel</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste below. Ship time is worked out automatically.</span></div>
+        <div class="xlhead"><b>📋 Paste itinerary from Excel</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste below. It is tidied to Cruise, Date, Week Day, Day, Location, Country, Arrival, Departure and Time Change, and ship time is worked out automatically.</span></div>
         <textarea id="xlText" placeholder="Cruise	Date	Week Day	Day	Ship	Location	Country	Berthing Method	Pier	Arrival Time	Departure Time	…
 ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	…	-5"></textarea>
         <div id="xlMsg" class="msg"></div>
+        <div id="xlClean" hidden>
+          <div class="xlbar"><b>Itinerary</b><span class="btns"><button class="small primary" id="xlCopy">Copy for Excel</button><button class="small" id="xlCsv">⬇ CSV</button></span></div>
+          <div class="xltbl"><table id="xlCleanTbl"></table></div>
+        </div>
       </div>
       <details style="margin-top:10px">
         <summary>…or paste the voyage plan text</summary>
@@ -880,7 +891,9 @@ function parseExcelItinerary(text,year){
     const r=rows[i], c={};
     r.forEach((v,j)=>{ if(!v||xlDate(v)) return;
       if(c.cruise==null&&/^(cruise|voyage)(\s*(no\.?|#|id|number))?$/i.test(v.trim())) c.cruise=j;
-      if(/^country/i.test(v)) return;
+      if(c.country==null&&/^country/i.test(v)){ c.country=j; return; }
+      if(c.wd==null&&/^week\s*day$|^weekday$|^dow$/i.test(v.trim())) c.wd=j;
+      if(c.dayno==null&&/^day(\s*(no\.?|#))?$/i.test(v.trim())) c.dayno=j;
       for(const k of ['chg','off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard|berth|pier|method|week/i.test(v)){ c[k]=j; break; } } });
     if(c.date!=null&&Object.keys(c).length>=2){ col=c; start=i+1; hdr=r; break; }
   }
@@ -928,7 +941,8 @@ function parseExcelItinerary(text,year){
     }
     if(!port) port=r.find((v,j)=>j!==di&&/[A-Za-z]{3}/.test(v)&&!xlDate(v)&&!xlTime(v)&&isNaN(xlOffset(v))&&!/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*$/i.test(v))||'';
     if(/\bsea\b|cruising|scenic/i.test(port)&&!/port/i.test(port)){ if(/\bat\s*sea\b|^sea\b|sea\s*day/i.test(port)) port='At sea'; }
-    raw.push({dt,off,arr,dep,port:port.replace(/\s+/g,' ').trim()});
+    const cell=k=>col&&col[k]!=null?String(r[col[k]]||'').trim():'';
+    raw.push({dt,off,arr,dep,port:port.replace(/\s+/g,' ').trim(),x:{cruise:cell('cruise'),wd:cell('wd'),dayno:cell('dayno'),loc:(col&&col.port!=null?cell('port'):port).replace(/\s+/g,' '),country:cell('country'),tc:offCol!=null?String(r[offCol]||'').trim():''}});
   }
   // numeric dates: decide M/D vs D/M from the whole column
   const nums=raw.filter(e=>e.dt.a!=null);
@@ -940,7 +954,7 @@ function parseExcelItinerary(text,year){
     if(yy) y=yy; else { if(prevMon!==null&&mon<prevMon-6) y++; }
     prevMon=mon;
     if(/at sea/i.test(e.port)){ e.arr=''; e.dep=''; }
-    return {date:ymd(yy||y,mon,d),port:e.port,off:e.off,arr:e.arr,dep:e.dep};
+    return {date:ymd(yy||y,mon,d),port:e.port,off:e.off,arr:e.arr,dep:e.dep,x:e.x};
   }).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(e.date));
   if(delta){ let run=NaN; days.forEach((e,i)=>{ const v=e.off; if(i===0||isNaN(run)) run=v; else if(!isNaN(v)) run+=v; else e.filled=true; e.off=run; }); days.forEach(e=>{ if(isNaN(e.off)) e.filled=false; }); }
   // fill gaps in the UTC column from the day before (only after a known value)
@@ -950,23 +964,56 @@ function parseExcelItinerary(text,year){
   if(col&&col.cruise!=null){ const ids=[...new Set(rows.slice(start).map(r=>(r[col.cruise]||'').trim()).filter(x=>/\w{4,}/.test(x)))]; const ports=days.filter(e=>!/at sea/i.test(e.port)).map(e=>e.port.replace(/,.*$/,'')); name=(ids.length?'Cruise '+ids.join(' + ')+' · ':'Itinerary · ')+(ports.length?ports[0]+' → '+ports[ports.length-1]:''); }
   return {days,note,header:!!col,name,delta};
 }
+const XL_COLS=['Cruise','Date','Week Day','Day','Location','Country','Arrival Time','Departure Time','Time Change'];
+const WD3=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MONC=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let xlClean=[];
+function cleanItinerary(days,delta){
+  return days.map((e,i)=>{
+    const [Y,M,D]=e.date.split('-').map(Number), wd=WD3[new Date(Date.UTC(Y,M-1,D)).getUTCDay()];
+    let tc=e.x.tc;
+    if(!delta){ // sheet gave the UTC itself: turn it into a Time Change (first day = UTC)
+      const prev=days[i-1]; const sea=/at sea/i.test(e.port);
+      if(isNaN(e.off)) tc='';
+      else if(!prev||isNaN(prev.off)) tc=String(e.off);
+      else { const dlt=e.off-prev.off; tc=dlt?String(dlt):(sea?'':'0'); }
+    }
+    if(tc) tc=tc.replace(/[−–]/g,'-').replace(/^\+/,'');
+    let dn=e.x.dayno, w=e.x.wd||wd; if(dn&&!/^\d+$/.test(dn)){ if(!e.x.wd) w=wd; dn=''; }
+    return [e.x.cruise, pad(D)+'-'+MONC[M-1]+'-'+Y, w, dn, e.x.loc||e.port, e.x.country||(/at sea/i.test(e.port)?'At sea':''), e.arr, e.dep, tc];
+  });
+}
+function renderClean(){
+  const box=$('xlClean');
+  if(!xlClean.length){ box.hidden=true; return; }
+  box.hidden=false;
+  $('xlCleanTbl').innerHTML='<thead><tr>'+XL_COLS.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>'+
+    xlClean.map(r=>'<tr'+(/at sea/i.test(r[4])?' class="sea"':'')+'>'+r.map((v,j)=>`<td${j===8&&v&&v!=='0'?' class="tchg"':''}>${esc(v)}</td>`).join('')+'</tr>').join('')+'</tbody>';
+}
+function cleanTsv(){ return [XL_COLS,...xlClean].map(r=>r.join('\t')).join('\n'); }
+$('xlCopy').onclick=()=>{ const t=cleanTsv();
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Itinerary copied — paste into Excel')).catch(()=>{ const a=document.createElement('textarea'); a.value=t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); toast('Itinerary copied — paste into Excel'); }); };
+$('xlCsv').onclick=()=>{ const csv=[XL_COLS,...xlClean].map(r=>r.map(v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=(xlClean[0][0]||'itinerary')+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
 let xlTimer=null;
-function runExcelPaste(){
+function runExcelPaste(fromPaste){
   const t=$('xlText').value; if(!t.trim()){ setMsg('xlMsg','',''); return; }
   const y=inferYear(t)||+$('year').value||new Date().getFullYear();
   const {days,note,name:nm,delta}=parseExcelItinerary(t,y); const name=nm||'Itinerary (pasted from Excel)';
   if(days.length<1){ setMsg('xlMsg','bad','No itinerary rows found. Copy the rows from Excel including the <b>Date</b> column (and the header row if you can).'); return; }
   let kept=0; days.forEach(e=>{ if(isNaN(e.off)){ const o=voy.find(v=>v.date===e.date&&!isNaN(v.off)); if(o){ e.off=o.off; kept++; } } });
   const filled=days.filter(e=>e.filled).length, bad=days.filter(e=>isNaN(e.off)).length;
-  days.forEach(e=>delete e.filled);
+  xlClean=cleanItinerary(days,delta); renderClean(); if(fromPaste){ $('xlText').value=cleanTsv(); } store.set('xlClean',xlClean);
+  days.forEach(e=>{ delete e.filled; delete e.x; });
   $('year').value=+days[0].date.slice(0,4); store.set('year',+days[0].date.slice(0,4));
   applyVoyage(days,name,t); setMsg('voyMsg','','');
   setMsg('xlMsg',bad?'warn':'ok',`✓ Loaded <b>${days.length}</b> days from Excel (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
     (bad?` <b>${bad}</b> day(s) before the first time change have no UTC yet — fill the red cells below.`:'')+
     (delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':'')+(kept?` ${kept} day(s) before the first time change kept the UTC from the voyage already loaded.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
 }
-$('xlText').addEventListener('paste',()=>{ clearTimeout(xlTimer); xlTimer=setTimeout(runExcelPaste,50); });
-$('xlText').addEventListener('input',()=>{ clearTimeout(xlTimer); xlTimer=setTimeout(runExcelPaste,600); });
+let xlPasting=false;
+$('xlText').addEventListener('paste',()=>{ xlPasting=true; clearTimeout(xlTimer); xlTimer=setTimeout(()=>{ xlPasting=false; runExcelPaste(true); },50); });
+$('xlText').addEventListener('input',()=>{ if(xlPasting) return; clearTimeout(xlTimer); xlTimer=setTimeout(()=>runExcelPaste(false),600); });
+xlClean=store.get('xlClean',[])||[]; if(xlClean.length){ $('xlText').value=cleanTsv(); renderClean(); }
 
 /* ---- PDF loading via pdf.js ---- */
 /* PDF reader: bundled copy first (works offline), a fresh retry, then a backup copy from the web */
@@ -1064,7 +1111,7 @@ async function handleFile(file){
 $('drop').onclick=()=>$('pdfFile').click();
 $('clearVoy').onclick=()=>{ $('clearConfirm').hidden=!voy.length?true:false; if(!voy.length) toast('Nothing to clear'); };
 $('clearNo').onclick=()=>{ $('clearConfirm').hidden=true; };
-$('clearYes').onclick=()=>{
+$('clearYes').onclick=()=>{ xlClean=[]; store.set('xlClean',[]); $('xlText').value=''; renderClean(); setMsg('xlMsg','','');
   voy=[]; voyName=''; save();
   $('pdfFile').value=''; $('voyText').value='';
   $('clearConfirm').hidden=true;
