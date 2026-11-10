@@ -368,8 +368,6 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
       </table></div>
       <div class="btns" style="margin-top:10px">
         <button class="small" id="addDay">+ Add day</button>
-        <button class="small" id="loadPreset">Load voyage 66261028 (Barcelona → Port Canaveral)</button>
-        <button class="small" id="saveSite" title="Save the voyage plan and schedule as site-data.json, then upload it next to index.html so every crew member sees it">⬆ Save as site-data.json</button>
       </div>
       <datalist id="nclFleet"></datalist>
       <p class="hint">NCL in port: type the other ship(s) docked with us that day, separated by commas. Add its times (08:00-17:00) and pier if you know them, e.g. <i>Norwegian Getaway 08:00-17:00 Pier 2</i>.</p>
@@ -835,7 +833,6 @@ $('addDay').onclick=()=>{
   else { const n=new Date(); date=ymd(n.getFullYear(),n.getMonth()+1,n.getDate()); }
   voy.push({date,port:'',off}); save(); renderAll();
 };
-$('loadPreset').onclick=()=>{ voy=PRESET.days.map(x=>({...x})); voyName=PRESET.name; $('year').value=PRESET.year; store.set('year',PRESET.year); save(); setMsg('voyMsg','ok','Loaded voyage 66261028.'); renderAll(); };
 $('chg').onchange=()=>{store.set('chg',chg());renderAll();};
 $('year').onchange=()=>{
   const y=+$('year').value; if(!y) return; store.set('year',y);
@@ -1451,11 +1448,7 @@ function siteData(){
     days:voy.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off,ships:e.ships||''})),
     schedule:$('sched').value,scheduleZone:$('sZone').value};
 }
-$('saveSite').onclick=async()=>{
-  const json=JSON.stringify(siteData(),null,2);
-  if(dlNs){ try{ await dlNs.save({filename:'site-data.json',data:json}); toast('site-data.json saved'); return; }catch(e){ if(e&&e.code==='declined') return; } }
-  if(!saveFile('site-data.json',json,'application/json')) copyText(json,'site-data.json');
-};
+
 async function loadSiteData(){
   if(location.protocol==='file:') return;
   try{

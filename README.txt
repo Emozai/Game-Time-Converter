@@ -25,16 +25,13 @@ UPDATE FOR A NEW VOYAGE OR NEW GAME WEEK
   1. Open the website.
   2. Step 1: load the new voyage plan PDF and check the UTC column.
   3. Step 3: paste the new game schedule.
-  4. Click "Save as site-data.json" (in the Voyage plan box).
-  5. Replace site-data.json on the server with the new file.
-  Every crew member then sees the new voyage plan and schedule the next
-  time they open or refresh the page.
+  The voyage plan and schedule are saved on that device.
 
 NOTES
   - Ship time comes from the voyage plan, not from each person's phone,
     so it is right wherever they are and whatever their phone is set to.
   - Clocks are assumed to change at 02:00 ship time. Change "Clocks change
-    at" if the bridge does it at another hour, then save site-data.json again.
+    at" if the bridge does it at another hour.
   - Opening index.html straight from a USB stick or desktop works for
     converting, but the PDF reader and site-data.json only load when the
     folder is served from a web server.
