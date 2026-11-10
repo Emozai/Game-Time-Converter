@@ -322,17 +322,17 @@
     <!-- VOYAGE PLAN (admin) -->
     <section class="card admin-only">
       <h2><span class="step">1</span>Voyage plan</h2>
-      <p class="sub">Load the voyage plan PDF <b>and/or</b> the itinerary from Excel — they are combined by date. The voyage plan gives the daily UTC offsets, the itinerary gives ports, times and time changes. Check the table and edit any cell if needed.</p>
+      <p class="sub">Load one or more voyage plan PDFs (e.g. this voyage and the next) <b>and/or</b> the itinerary from Excel — they are combined by date. The voyage plan gives the daily UTC offsets, the itinerary gives ports, times and time changes. Check the table and edit any cell if needed.</p>
       <div class="droprow">
         <div class="drop" id="drop">
           <input type="file" id="pdfFile" accept=".pdf,application/pdf,.txt,.xlsx,.csv,.tsv,text/csv" multiple hidden>
-          <b>Choose files</b> or drop them here — voyage plan PDF and/or itinerary Excel (.xlsx / .csv)
+          <b>Choose files</b> or drop them here — one or more voyage plan PDFs and/or itinerary Excel (.xlsx / .csv)
           <div class="hint" id="voyName"></div>
         </div>
-        <button id="clearVoy" class="clearbtn" title="Remove the loaded voyage plan">✕ Clear</button>
+        <button id="clearVoy" class="clearbtn" title="Remove all loaded voyage plans and the itinerary">✕ Clear</button>
       </div>
       <div id="srcBox" class="srcbox" hidden></div>
-      <div id="clearConfirm" class="msg warn" hidden>Remove the loaded voyage plan? <button class="small" id="clearYes">Yes, clear it</button> <button class="small" id="clearNo">Cancel</button></div>
+      <div id="clearConfirm" class="msg warn" hidden>Remove all loaded voyage plans and the itinerary? <button class="small" id="clearYes">Yes, clear it</button> <button class="small" id="clearNo">Cancel</button></div>
       <div id="voyMsg" class="msg"></div>
       <div class="xl" id="xlBox">
         <div class="xlhead"><b>📋 Paste itinerary from Excel</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste (or drag the selection) below. It is tidied to Cruise, Date, Week Day, Day, Location, Country, Arrival, Departure and Time Change, and ship time is worked out automatically.</span></div>
@@ -809,6 +809,32 @@ function combineSources(){
   const list=[...map.values()].sort((a,b)=>a.date<b.date?-1:1).map(e=>({...e,off:e.off==null?NaN:e.off}));
   return {list,differ,filledFromVoy};
 }
+/* several voyage plan PDFs: each kept as its own plan, combined by date */
+const plansOf=v=>!v?[]:(Array.isArray(v.plans)?v.plans:[{name:v.name,days:v.days||[],key:v.name}]);
+function mergePlans(plans){
+  if(!plans.length) return null;
+  const map=new Map();
+  for(const p of plans) for(const e of p.days){
+    const v=map.get(e.date);
+    if(!v){ map.set(e.date,{...e}); continue; }
+    // the same day in two plans (turnaround day): keep the arrival from one and the departure from the other
+    if(e.port&&!(isSea(e.port)&&v.port&&!isSea(v.port))) v.port=e.port;
+    v.arr=e.arr||v.arr||''; v.dep=e.dep||v.dep||'';
+    if(e.off!=null&&!isNaN(e.off)) v.off=e.off;
+    if(e.ships) v.ships=e.ships;
+  }
+  const days=[...map.values()].sort((a,b)=>a.date<b.date?-1:1);
+  const sorted=plans.slice().sort((a,b)=>((a.days[0]||{}).date||'')<((b.days[0]||{}).date||'')?-1:1);
+  return {name:sorted.map(p=>p.name).join(' + '),days,plans};
+}
+function addVoyPlan(days,name,key){
+  const keep=days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off,ships:e.ships||''}));
+  const plans=plansOf(srcVoy).filter(p=>p.key!==key);   // the same voyage loaded again replaces the old copy
+  const replaced=plans.length<plansOf(srcVoy).length;
+  if(keep.length) plans.push({name,key,days:keep});
+  srcVoy=mergePlans(plans); store.set('srcVoy',srcVoy);
+  const r=rebuildVoy(); r.replaced=replaced; r.plans=plans.length; return r;
+}
 function setVoySource(kind,days,name){
   const keep=days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off,ships:e.ships||''}));
   if(kind==='voy') srcVoy=days.length?{name,days:keep}:null; else srcItin=days.length?{name,days:keep}:null;
@@ -828,10 +854,16 @@ function renderSources(r){
   const span=d=>d&&d.days.length?`${d.days[0].date} → ${d.days[d.days.length-1].date} · ${d.days.length} days`:'';
   const row=(icon,label,d,k)=>d?`<div class="src"><span>${icon} <b>${label}:</b> ${esc(d.name)} <span class="muted">(${span(d)})</span></span><button class="small" data-rm="${k}">Remove</button></div>`
     :`<div class="src off"><span>${icon} ${label}: not loaded</span></div>`;
-  box.innerHTML=row('📄','Voyage plan',srcVoy,'voy')+row('📋','Itinerary',srcItin,'itin')+
+  const plans=plansOf(srcVoy).slice().sort((a,b)=>((a.days[0]||{}).date||'')<((b.days[0]||{}).date||'')?-1:1);
+  const voyRows=plans.length?plans.map(p=>`<div class="src"><span>📄 <b>Voyage plan:</b> ${esc(p.name)} <span class="muted">(${span(p)})</span></span><button class="small" data-rm="voy" data-key="${esc(p.key)}">Remove</button></div>`).join('')
+    +(plans.length>1?`<div class="comb">${plans.length} voyage plans combined: ${srcVoy.days.length} days (${srcVoy.days[0].date} → ${srcVoy.days[srcVoy.days.length-1].date})</div>`:'')
+    :row('📄','Voyage plan',null,'voy');
+  box.innerHTML=voyRows+row('📋','Itinerary',srcItin,'itin')+
     (srcVoy&&srcItin?`<div class="comb">Combined: ${r.list.length} days (${r.list[0].date} → ${r.list[r.list.length-1].date})${r.differ?` <span style="color:var(--warn);font-weight:500">· ${r.differ} day(s) where the itinerary's time change differs from the voyage plan — the voyage plan UTC is used</span>`:''}</div>`:'');
   box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
-    if(b.dataset.rm==='voy'){ srcVoy=null; $('pdfFile').value=''; $('voyText').value=''; setMsg('voyMsg','ok','Voyage plan removed.'); }
+    if(b.dataset.rm==='voy'){ const p=plansOf(srcVoy).find(x=>x.key===b.dataset.key);
+      srcVoy=mergePlans(plansOf(srcVoy).filter(x=>x!==p)); $('pdfFile').value=''; if(!srcVoy) $('voyText').value='';
+      setMsg('voyMsg','ok','Voyage plan removed'+(p?': '+esc(p.name):'')+'.'); }
     else { srcItin=null; xlClean=[]; store.set('xlClean',[]); $('xlText').value=''; renderClean(); setMsg('xlMsg','ok','Itinerary removed.'); }
     store.set('srcVoy',srcVoy); store.set('srcItin',srcItin); rebuildVoy(); renderAll();
   });
@@ -882,9 +914,10 @@ function setMsg(id,kind,html){ const el=$(id); el.className='msg '+(html?kind:''
 
 function applyVoyage(list,name,text){
   if(!list.length){ setMsg('voyMsg','bad','Couldn’t find any day rows (lines starting with a date like <b>8-Nov</b>). Try pasting the text instead, or edit the table by hand.'); return; }
-  const r=setVoySource('voy',list,name);
+  const vn=(text||'').match(/VOYAGE\s*(?:NO\.?|#)?\s*(\d+)/i);
+  const r=addVoyPlan(list,name,vn?'voyage '+vn[1]:name);
   const bad=list.filter(e=>isNaN(e.off)).length;
-  setMsg('voyMsg',bad?'warn':'ok',`Voyage plan: read <b>${list.length}</b> days (${list[0].date} → ${list[list.length-1].date}).`+(bad?` <b>${bad}</b> day(s) had no readable UTC offset (marked red) — please fill them in.`:' Please check the UTC column against the PDF.')+(srcItin?` Combined with the itinerary: <b>${r.list.length}</b> days.`:''));
+  setMsg('voyMsg',bad?'warn':'ok',`${r.replaced?'Voyage plan updated':'Voyage plan added'}: read <b>${list.length}</b> days (${list[0].date} → ${list[list.length-1].date}).`+(r.plans>1?` <b>${r.plans}</b> voyage plans loaded — <b>${voy.length}</b> days in total.`:'')+(bad?` <b>${bad}</b> day(s) had no readable UTC offset (marked red) — please fill them in.`:' Please check the UTC column against the PDF.')+(srcItin?` Combined with the itinerary: <b>${r.list.length}</b> days.`:''));
   renderAll();
 }
 $('voyParse').onclick=()=>{
