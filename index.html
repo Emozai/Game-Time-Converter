@@ -154,6 +154,15 @@
   .voy td.off input{width:70px;font-family:var(--mono);text-align:center}
   .voy tr.change td{background:var(--accent-soft)}
   .voy tr.today td{box-shadow:inset 3px 0 0 var(--ok)}
+  .dual-day{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+  .dual-day.now{border-color:var(--accent);background:var(--accent-soft)}
+  .dual-day .dh{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:600}
+  .dual-ship{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--line);flex-wrap:wrap}
+  .dual-ship:first-of-type{border-top:0}
+  .dual-ship a{font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap}
+  .dual-ship .st{font-size:12px}
+  .tag.dual{background:var(--warn-soft);color:var(--warn)}
+  td input.ships{min-width:170px}
   .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
   .tag.chg{background:var(--accent);color:#fff}
   .tag.today{background:var(--ok);color:#fff}
@@ -307,6 +316,12 @@
     <div class="hint" id="posNote">Estimated from the voyage plan (scheduled departure, arrival and route), not live GPS. Use the CruiseMapper button for the live AIS position.</div>
   </section>
 
+  <section class="card" id="dualCard" hidden>
+    <h2 style="margin:0 0 4px">🚢 NCL ships in port</h2>
+    <div class="muted" style="font-size:13.5px">Dual calls — other Norwegian Cruise Line ships at the same port on the same day. Tap a ship for its live position.</div>
+    <div id="dualBody"></div>
+  </section>
+
   <div class="grid2">
     <!-- VOYAGE SUMMARY (crew) -->
     <section class="card crew-only" id="voySummary">
@@ -348,7 +363,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
       </div>
       <div class="row" style="margin:0 0 10px"><div><label for="trackUrl">Live tracker link (CruiseMapper page for your ship)</label><input id="trackUrl" placeholder="https://www.cruisemapper.com/ships/…"></div></div>
       <div class="voy"><table>
-        <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th title="Other NCL ships in the same port that day">NCL in port (dual call)</th><th></th></tr></thead>
         <tbody id="voyBody"></tbody>
       </table></div>
       <div class="btns" style="margin-top:10px">
@@ -356,6 +371,8 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <button class="small" id="loadPreset">Load voyage 66261028 (Barcelona → Port Canaveral)</button>
         <button class="small" id="saveSite" title="Save the voyage plan and schedule as site-data.json, then upload it next to index.html so every crew member sees it">⬆ Save as site-data.json</button>
       </div>
+      <datalist id="nclFleet"></datalist>
+      <p class="hint">NCL in port: type the other ship(s) docked with us that day, separated by commas. Add its times (08:00-17:00) and pier if you know them, e.g. <i>Norwegian Getaway 08:00-17:00 Pier 2</i>.</p>
       <p class="hint">On a day whose offset differs from the day before, the change happens at the time above (default 02:00 ship time, the night going into that day).</p>
     </section>
 
@@ -794,15 +811,16 @@ function renderVoy(){
     const prev=voy[i-1]; const changed=prev&&!isNaN(e.off)&&!isNaN(prev.off)&&e.off!==prev.off;
     const diff=changed?e.off-prev.off:0;
     const badge=changed?`<span class="tag chg">${diff<0?'⟲ '+Math.abs(diff)+' hr back':'⟳ '+diff+' hr fwd'}</span>`:'';
-    const tb=e.date===today?' <span class="tag today">today</span>':'';
+    const tb=(e.date===today?' <span class="tag today">today</span>':'')+(e.ships&&e.ships.trim()?' <span class="tag dual">dual call</span>':'');
     return `<tr class="${changed?'change':''} ${e.date===today?'today':''}">
       <td><input type="date" data-i="${i}" data-k="date" value="${e.date}"></td>
       <td><input data-i="${i}" data-k="port" value="${esc(e.port||'')}"></td>
       <td><input class="tm" data-i="${i}" data-k="arr" value="${esc(e.arr||'')}" placeholder="--:--" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td><input class="tm" data-i="${i}" data-k="dep" value="${esc(e.dep||'')}" placeholder="--:--" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td class="off"><input data-i="${i}" data-k="off" value="${isNaN(e.off)?'':fmtOffset(e.off).replace('−','-')}" style="${isNaN(e.off)?'border-color:var(--bad)':''}"></td>
+      <td><input class="ships" list="nclFleet" data-i="${i}" data-k="ships" value="${esc(e.ships||'')}" placeholder="${/at sea/i.test(e.port||'')?'':'e.g. Norwegian Getaway 08:00-17:00'}" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td>${badge}${tb} <button class="small" data-del="${i}" title="Remove">✕</button></td></tr>`;
-  }).join('')||'<tr><td colspan="6" class="muted">No voyage days yet — load a PDF.</td></tr>';
+  }).join('')||'<tr><td colspan="7" class="muted">No voyage days yet — load a PDF.</td></tr>';
 }
 $('voyBody').addEventListener('change',ev=>{
   const t=ev.target; if(!t.dataset.k) return; const e=voy[+t.dataset.i];
@@ -877,6 +895,7 @@ const XL_HEAD={
   port:/port|location|place|destination|itinerary|city|area/i,
   arr:/\barr|eta\b|arrival|\bin\b|alongside/i,
   dep:/\bdep|etd\b|departure|sail|\bout\b/i,
+  ships:/dual|other\s*(ncl\s*)?ships?|ncl\s*ships?|ships?\s*in\s*port|also\s*in\s*port|sister/i,
   chg:/time\s*change|clock\s*change|^change$|time\s*diff|clocks?\s*(fwd|back|adj)/i,
   off:/utc|gmt|time\s*zone|\btz\b|zone|offset|ship\s*time|clock/i
 };
@@ -894,7 +913,7 @@ function parseExcelItinerary(text,year){
       if(c.country==null&&/^country/i.test(v)){ c.country=j; return; }
       if(c.wd==null&&/^week\s*day$|^weekday$|^dow$/i.test(v.trim())) c.wd=j;
       if(c.dayno==null&&/^day(\s*(no\.?|#))?$/i.test(v.trim())) c.dayno=j;
-      for(const k of ['chg','off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard|berth|pier|method|week/i.test(v)){ c[k]=j; break; } } });
+      for(const k of ['ships','chg','off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard|berth|pier|method|week/i.test(v)){ c[k]=j; break; } } });
     if(c.date!=null&&Object.keys(c).length>=2){ col=c; start=i+1; hdr=r; break; }
   }
   // no UTC column: look for a column of whole hours (e.g. -5, 1, 0) — absolute UTC or clock changes
@@ -942,7 +961,7 @@ function parseExcelItinerary(text,year){
     if(!port) port=r.find((v,j)=>j!==di&&/[A-Za-z]{3}/.test(v)&&!xlDate(v)&&!xlTime(v)&&isNaN(xlOffset(v))&&!/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*$/i.test(v))||'';
     if(/\bsea\b|cruising|scenic/i.test(port)&&!/port/i.test(port)){ if(/\bat\s*sea\b|^sea\b|sea\s*day/i.test(port)) port='At sea'; }
     const cell=k=>col&&col[k]!=null?String(r[col[k]]||'').trim():'';
-    raw.push({dt,off,arr,dep,port:port.replace(/\s+/g,' ').trim(),x:{cruise:cell('cruise'),wd:cell('wd'),dayno:cell('dayno'),loc:(col&&col.port!=null?cell('port'):port).replace(/\s+/g,' '),country:cell('country'),tc:offCol!=null?String(r[offCol]||'').trim():''}});
+    raw.push({dt,off,arr,dep,port:port.replace(/\s+/g,' ').trim(),x:{cruise:cell('cruise'),wd:cell('wd'),dayno:cell('dayno'),loc:(col&&col.port!=null?cell('port'):port).replace(/\s+/g,' '),country:cell('country'),tc:offCol!=null?String(r[offCol]||'').trim():''},ships:cell('ships')});
   }
   // numeric dates: decide M/D vs D/M from the whole column
   const nums=raw.filter(e=>e.dt.a!=null);
@@ -954,7 +973,7 @@ function parseExcelItinerary(text,year){
     if(yy) y=yy; else { if(prevMon!==null&&mon<prevMon-6) y++; }
     prevMon=mon;
     if(/at sea/i.test(e.port)){ e.arr=''; e.dep=''; }
-    return {date:ymd(yy||y,mon,d),port:e.port,off:e.off,arr:e.arr,dep:e.dep,x:e.x};
+    return {date:ymd(yy||y,mon,d),port:e.port,off:e.off,arr:e.arr,dep:e.dep,ships:e.ships||'',x:e.x};
   }).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(e.date));
   if(delta){ let run=NaN; days.forEach((e,i)=>{ const v=e.off; if(i===0||isNaN(run)) run=v; else if(!isNaN(v)) run+=v; else e.filled=true; e.off=run; }); days.forEach(e=>{ if(isNaN(e.off)) e.filled=false; }); }
   // fill gaps in the UTC column from the day before (only after a known value)
@@ -1000,6 +1019,7 @@ function runExcelPaste(fromPaste){
   const y=inferYear(t)||+$('year').value||new Date().getFullYear();
   const {days,note,name:nm,delta}=parseExcelItinerary(t,y); const name=nm||'Itinerary (pasted from Excel)';
   if(days.length<1){ setMsg('xlMsg','bad','No itinerary rows found. Copy the rows from Excel including the <b>Date</b> column (and the header row if you can).'); return; }
+  days.forEach(e=>{ if(!e.ships){ const o=voy.find(v=>v.date===e.date&&v.ships&&(v.port||'').split(',')[0].toLowerCase()===(e.port||'').split(',')[0].toLowerCase()); if(o) e.ships=o.ships; } });
   let kept=0; days.forEach(e=>{ if(isNaN(e.off)){ const o=voy.find(v=>v.date===e.date&&!isNaN(v.off)); if(o){ e.off=o.off; kept++; } } });
   const filled=days.filter(e=>e.filled).length, bad=days.filter(e=>isNaN(e.off)).length;
   xlClean=cleanItinerary(days,delta); renderClean(); if(fromPaste){ $('xlText').value=cleanTsv(); } store.set('xlClean',xlClean);
@@ -1428,7 +1448,7 @@ function saveFile(name,data,type){
 function siteData(){
   return {updated:Date.now(),name:voyName,year:+$('year').value,changeTime:chg(),ship:$('rShip').value,
     trackerUrl:$('trackUrl').value.trim(),
-    days:voy.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off})),
+    days:voy.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off,ships:e.ships||''})),
     schedule:$('sched').value,scheduleZone:$('sZone').value};
 }
 $('saveSite').onclick=async()=>{
@@ -1446,7 +1466,7 @@ async function loadSiteData(){
   }catch(e){}
 }
 function applySite(d,clicked){
-  voy=d.days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:e.off==null?NaN:+e.off})); voyName=d.name||'';
+  voy=d.days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:e.off==null?NaN:+e.off,ships:e.ships||''})); voyName=d.name||'';
   if(d.trackerUrl){ $('trackUrl').value=d.trackerUrl; store.set('trackUrl',d.trackerUrl); }
   if(d.year) $('year').value=d.year; if(d.changeTime) $('chg').value=d.changeTime; if(d.ship) $('rShip').value=d.ship;
   store.set('voy',voy); store.set('voyName',voyName); store.set('chg',chg()); store.set('localStamp',d.updated||0);
@@ -1581,6 +1601,7 @@ function renderVoySummary(){
   const nextPort=v.find(e=>e.date>(today||'')&&e.port&&!/at sea/i.test(e.port));
   $('voySumBody').innerHTML=`<div style="font-weight:600;color:var(--ink)">${esc(voyName||'Voyage plan')}</div>
     <div style="margin-top:6px">Today: <b style="color:var(--ink)">${esc(td?(td.port||'—'):'outside the voyage dates')}</b>${isNaN(s.off)?'':` · ship time UTC ${fmtOffset(s.off)}`}</div>
+    ${td&&td.ships?`<div>Dual call: <b style="color:var(--ink)">${esc(parseShips(td.ships).map(x=>x.name).join(', '))}</b> also in port</div>`:''}
     ${nextPort?`<div>Next port: <b style="color:var(--ink)">${esc(nextPort.port)}</b> · ${fmtDate(+nextPort.date.slice(0,4),+nextPort.date.slice(5,7),+nextPort.date.slice(8,10),new Date(nextPort.date+'T00:00:00Z').getUTCDay(),true)}</div>`:''}
     <div class="hint" style="margin-top:8px">${first.date} → ${last.date} · times follow the official voyage plan</div>`;
 }
@@ -1738,7 +1759,38 @@ function renderHeaderInfo(){
 
 setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); renderHeaderInfo(); },30000);
 
-function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderHeaderInfo(); }
+/* ---- NCL ships in port (dual calls) ---- */
+const NCL_FLEET=['Norwegian Aqua','Norwegian Luna','Norwegian Prima','Norwegian Viva','Norwegian Encore','Norwegian Bliss','Norwegian Joy','Norwegian Escape','Norwegian Getaway','Norwegian Breakaway','Norwegian Epic','Norwegian Gem','Norwegian Jade','Norwegian Pearl','Norwegian Jewel','Norwegian Dawn','Norwegian Star','Norwegian Sun','Norwegian Sky','Norwegian Spirit','Pride of America'];
+$('nclFleet').innerHTML=NCL_FLEET.map(n=>`<option value="${n}">`).join('');
+function parseShips(txt){
+  return String(txt||'').split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean).map(raw=>{
+    const t=raw.match(/(\d{1,2}[:.]?\d{2})\s*[-–to]+\s*(\d{1,2}[:.]?\d{2})/i);
+    const hm=x=>{ x=x.replace('.',':'); if(!x.includes(':')) x=x.slice(0,-2)+':'+x.slice(-2); const [h,m]=x.split(':').map(Number); return pad(h)+':'+pad(m); };
+    let name=(t?raw.slice(0,t.index):raw).replace(/\b(pier|berth|p\d|ct\s*\d|terminal).*$/i,'').trim();
+    const rest=(t?raw.slice(t.index+t[0].length):'').trim();
+    const nl=name.toLowerCase(); const hit=NCL_FLEET.find(f=>f.toLowerCase()===nl)||NCL_FLEET.find(f=>f.toLowerCase().replace('norwegian ','')===nl.replace(/^(ncl|norwegian)\s*/,''));
+    if(hit) name=hit;
+    return {name,arr:t?hm(t[1]):'',dep:t?hm(t[2]):'',note:(rest||(t?'':raw.slice(name.length))).replace(/^[\s,·-]+/,'').trim(),raw};
+  });
+}
+function liveLink(name){ return 'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(name.toUpperCase()); }
+function renderDual(){
+  const card=$('dualCard'), h24=$('h24').checked, now=Date.now();
+  const s=shipLocal(voy,chg(),now), today=isNaN(s.off)?'':ymd(s.y,s.mo,s.d), nowHM=isNaN(s.off)?'':pad(s.h)+':'+pad(s.mi);
+  const days=voy.filter(e=>e.ships&&e.ships.trim()&&e.date>=today).sort((a,b)=>a.date<b.date?-1:1);
+  if(!days.length){ card.hidden=true; return; }
+  card.hidden=false;
+  const ft=x=>{ if(!x) return ''; const [h,m]=x.split(':').map(Number); return fmtTime(h,m,h24); };
+  const ownShip=($('rShip').value||'Norwegian Escape').trim();
+  $('dualBody').innerHTML=days.slice(0,6).map(e=>{
+    const [Y,M,D]=e.date.split('-').map(Number), wd=new Date(Date.UTC(Y,M-1,D)).getUTCDay(), isToday=e.date===today;
+    const status=(a,d)=>{ if(!isToday||!a||!d) return ''; if(nowHM<a) return `<span class="st muted">arrives ${ft(a)}</span>`; if(nowHM<d) return `<span class="tag today">in port now</span>`; return `<span class="st muted">departed ${ft(d)}</span>`; };
+    const ours=`<div class="dual-ship"><div><b>${esc(ownShip)}</b> <span class="muted">(us)</span>${e.arr||e.dep?` · ${ft(e.arr)||'—'}–${ft(e.dep)||'—'}`:''} ${status(e.arr,e.dep)}</div><a href="${esc(($('trackUrl').value||'').trim()||liveLink(ownShip))}" target="_blank" rel="noopener">Live position ↗</a></div>`;
+    const others=parseShips(e.ships).map(x=>`<div class="dual-ship"><div><b>${esc(x.name)}</b>${x.arr?` · ${ft(x.arr)}–${ft(x.dep)}`:''}${x.note?` · <span class="muted">${esc(x.note)}</span>`:''} ${status(x.arr,x.dep)}</div><a href="${liveLink(x.name)}" target="_blank" rel="noopener">Live position ↗</a></div>`).join('');
+    return `<div class="dual-day${isToday?' now':''}"><div class="dh"><span>${esc(e.port||'Port')}</span><span class="muted">${isToday?'<span class="tag today">today</span> ':''}${fmtDate(Y,M,D,wd,true)}</span></div>${ours}${others}</div>`;
+  }).join('');
+}
+function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderDual(); renderHeaderInfo(); }
 renderAll();
 loadSiteData();
 setInterval(renderNow,20000);
