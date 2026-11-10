@@ -321,10 +321,9 @@
       <div id="clearConfirm" class="msg warn" hidden>Remove the loaded voyage plan? <button class="small" id="clearYes">Yes, clear it</button> <button class="small" id="clearNo">Cancel</button></div>
       <div id="voyMsg" class="msg"></div>
       <div class="xl" id="xlBox">
-        <div class="xlhead"><b>📋 Paste from Excel (MXP itinerary)</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste below. Ship time is worked out automatically.</span></div>
-        <textarea id="xlText" placeholder="Date	Port	Arrival	Departure	UTC
-28-Oct-26	Barcelona		17:00	+1
-29-Oct-26	Marseille	07:00	17:00	+1"></textarea>
+        <div class="xlhead"><b>📋 Paste itinerary from Excel</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste below. Ship time is worked out automatically.</span></div>
+        <textarea id="xlText" placeholder="Cruise	Date	Week Day	Day	Ship	Location	Country	Berthing Method	Pier	Arrival Time	Departure Time	…
+ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	…	-5"></textarea>
         <div id="xlMsg" class="msg"></div>
       </div>
       <details style="margin-top:10px">
@@ -831,7 +830,7 @@ $('voyParse').onclick=()=>{
 };
 
 
-/* ---- Paste from Excel (MXP itinerary): tab-separated rows, header row optional ---- */
+/* ---- Paste itinerary from Excel: tab-separated rows, header row optional ---- */
 const MON3=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 function xlOffset(s){
   if(s==null) return NaN; s=String(s).trim().replace(/[−–]/g,'-').replace(/\s+/g,'');
@@ -874,12 +873,36 @@ function parseExcelItinerary(text,year){
   if(!lines.length) return {days:[],note:''};
   const rows=lines.map(l=>(l.includes('\t')?l.split('\t'):l.split(/\s{2,}|,(?=\s*\S)/)).map(c=>c.trim()));
   // header: first row that has a "date" cell and at least one other known header
-  let col=null, start=0;
+  let col=null, start=0, hdr=null, delta=false;
   for(let i=0;i<Math.min(rows.length,8);i++){
     const r=rows[i], c={};
     r.forEach((v,j)=>{ if(!v||xlDate(v)) return;
-      for(const k of ['off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard/i.test(v)){ c[k]=j; break; } } });
-    if(c.date!=null&&Object.keys(c).length>=2){ col=c; start=i+1; break; }
+      if(/^cruise|voyage/i.test(v)) c.cruise=j;
+      if(/^country/i.test(v)) return;
+      for(const k of ['off','date','arr','dep','port']){ if(c[k]==null&&XL_HEAD[k].test(v)&&!/aboard|pilot|crew|onboard|berth|pier|method|week/i.test(v)){ c[k]=j; break; } } });
+    if(c.date!=null&&Object.keys(c).length>=2){ col=c; start=i+1; hdr=r; break; }
+  }
+  // no UTC column: look for a column of whole hours (e.g. -5, 1, 0) — absolute UTC or clock changes
+  let offCol=col&&col.off!=null?col.off:null;
+  if(col&&offCol==null){
+    const used=new Set([col.date,col.port,col.arr,col.dep,col.cruise].filter(x=>x!=null));
+    const data=rows.slice(start).filter(r=>xlDate(r[col.date]));
+    const width=Math.max(...rows.map(r=>r.length));
+    const cands=[];
+    for(let j=0;j<width;j++){
+      if(used.has(j)) continue; const h=(hdr[j]||'');
+      if(/^(day|week|cruise|pier|deck|dress|charter|ship|country|berth)/i.test(h.trim())) continue;
+      const vals=data.map(r=>String(r[j]||'').trim()).filter(v=>v);
+      if(!vals.length||!vals.every(v=>/^[+−–-]?\d{1,2}(?:[:.]\d{2})?$/.test(v))) continue;
+      if(!vals.some(v=>/^[+−–-]/.test(v))&&vals.length===data.length) continue; // e.g. a 1..7 day counter
+      cands.push(j);
+    }
+    if(cands.length){
+      offCol=cands[cands.length-1];
+      // absolute UTC moves 1–2 hours a day at most; a jump like -5 → +1 means these are clock changes
+      const seq=data.map(r=>xlOffset(r[offCol])).filter(v=>!isNaN(v));
+      delta=seq.some((v,i)=>i>0&&Math.abs(v-seq[i-1])>3)||/theme|change|clock|adjust|diff/i.test(hdr[offCol]||'');
+    }
   }
   const raw=[];
   for(let i=start;i<rows.length;i++){
@@ -887,7 +910,7 @@ function parseExcelItinerary(text,year){
     const dt=di>=0?xlDate(r[di]):null; if(!dt) continue;
     let off=NaN, arr='', dep='', port='';
     if(col){
-      if(col.off!=null) off=xlOffset(r[col.off]);
+      if(offCol!=null) off=xlOffset(r[offCol]);
       if(col.arr!=null) arr=xlTime(r[col.arr]);
       if(col.dep!=null) dep=xlTime(r[col.dep]);
       if(col.port!=null) port=r[col.port]||'';
@@ -916,24 +939,27 @@ function parseExcelItinerary(text,year){
     if(/at sea/i.test(e.port)){ e.arr=''; e.dep=''; }
     return {date:ymd(yy||y,mon,d),port:e.port,off:e.off,arr:e.arr,dep:e.dep};
   }).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(e.date));
+  if(delta){ let run=NaN; days.forEach((e,i)=>{ const v=e.off; if(i===0||isNaN(run)) run=v; else if(!isNaN(v)) run+=v; else e.filled=true; e.off=run; }); days.forEach(e=>{ if(isNaN(e.off)) e.filled=false; }); }
   // fill gaps in the UTC column from the day before (only after a known value)
   for(let i=1;i<days.length;i++) if(isNaN(days[i].off)&&!isNaN(days[i-1].off)) { days[i].off=days[i-1].off; days[i].filled=true; }
   const note=nums.length&&!dm&&!md?' Dates read as month/day.':(order==='DM'&&nums.length?' Dates read as day/month.':'');
-  return {days,note,header:!!col};
+  let name='';
+  if(col&&col.cruise!=null){ const ids=[...new Set(rows.slice(start).map(r=>(r[col.cruise]||'').trim()).filter(x=>/\w{4,}/.test(x)))]; const ports=days.filter(e=>!/at sea/i.test(e.port)).map(e=>e.port.replace(/,.*$/,'')); name=(ids.length?'Cruise '+ids.join(' + ')+' · ':'Itinerary · ')+(ports.length?ports[0]+' → '+ports[ports.length-1]:''); }
+  return {days,note,header:!!col,name,delta};
 }
 let xlTimer=null;
 function runExcelPaste(){
   const t=$('xlText').value; if(!t.trim()){ setMsg('xlMsg','',''); return; }
   const y=inferYear(t)||+$('year').value||new Date().getFullYear();
-  const {days,note}=parseExcelItinerary(t,y);
+  const {days,note,name:nm,delta}=parseExcelItinerary(t,y); const name=nm||'Itinerary (pasted from Excel)';
   if(days.length<1){ setMsg('xlMsg','bad','No itinerary rows found. Copy the rows from Excel including the <b>Date</b> column (and the header row if you can).'); return; }
   const filled=days.filter(e=>e.filled).length, bad=days.filter(e=>isNaN(e.off)).length;
   days.forEach(e=>delete e.filled);
   $('year').value=+days[0].date.slice(0,4); store.set('year',+days[0].date.slice(0,4));
-  applyVoyage(days,'MXP itinerary (pasted from Excel)',t); setMsg('voyMsg','','');
+  applyVoyage(days,name,t); setMsg('voyMsg','','');
   setMsg('xlMsg',bad?'warn':'ok',`✓ Loaded <b>${days.length}</b> days from Excel (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
     (bad?` <b>${bad}</b> day(s) have no UTC offset — add a <b>UTC</b> column (e.g. +1, -4) or fill the red cells below.`:'')+
-    (filled?` ${filled} empty UTC cell(s) copied from the day before.`:'')+note);
+    (delta?' Clock changes read from the last column (first day = ship UTC, then hours forward/back).':'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
 }
 $('xlText').addEventListener('paste',()=>{ clearTimeout(xlTimer); xlTimer=setTimeout(runExcelPaste,50); });
 $('xlText').addEventListener('input',()=>{ clearTimeout(xlTimer); xlTimer=setTimeout(runExcelPaste,600); });
