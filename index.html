@@ -1156,27 +1156,234 @@ xlClean=store.get('xlClean',[])||[]; if(xlClean.length){ $('xlText').value=clean
 
 /* ---- PDF loading via pdf.js ---- */
 /* PDF reader: bundled copy first (works offline), a fresh retry, then a backup copy from the web */
-let pdfLocal=null, pdfCdn=null;
-const absUrl=(path,bust)=>{ const u=new URL(path,location.href); if(bust) u.searchParams.set('r',String(Date.now())); return u.href; };
-function loadPdfLocal(bust){
-  if(pdfLocal&&!bust) return pdfLocal;
+/* ---- built-in PDF text reader: reads the voyage plan on this device, with no downloads ---- */
+const miniPdf=(()=>{
+  const WS=new Set([0,9,10,12,13,32]), DL=new Set([40,41,60,62,91,93,123,125,47,37]);
+  const toStr=u=>{ let s=''; for(let i=0;i<u.length;i+=8192) s+=String.fromCharCode.apply(null,u.subarray(i,i+8192)); return s; };
+  const bytes=s=>{ const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i)&255; return u; };
+  function Lexer(s,pos){ this.s=s; this.p=pos||0; }
+  Lexer.prototype.skip=function(){ const s=this.s; for(;;){ const c=s.charCodeAt(this.p); if(WS.has(c)) this.p++; else if(c===37){ while(this.p<s.length&&s[this.p]!=='\n'&&s[this.p]!=='\r') this.p++; } else break; } };
+  Lexer.prototype.tok=function(){
+    this.skip(); const s=this.s; if(this.p>=s.length) return null;
+    const c=s[this.p];
+    if(c==='('){ let d=1,o=''; this.p++;
+      while(this.p<s.length){ let ch=s[this.p++];
+        if(ch==='\\'){ const n=s[this.p++];
+          if(n==='n') o+='\n'; else if(n==='r') o+='\r'; else if(n==='t') o+='\t'; else if(n==='b') o+='\b'; else if(n==='f') o+='\f';
+          else if(n>='0'&&n<='7'){ let v=n; while(v.length<3&&s[this.p]>='0'&&s[this.p]<='7') v+=s[this.p++]; o+=String.fromCharCode(parseInt(v,8)&255); }
+          else if(n==='\r'){ if(s[this.p]==='\n') this.p++; } else if(n==='\n'){} else o+=n;
+        } else if(ch==='('){ d++; o+=ch; } else if(ch===')'){ if(--d===0) break; o+=ch; } else o+=ch; }
+      return {t:'str',v:o}; }
+    if(c==='<'){ if(s[this.p+1]==='<'){ this.p+=2; return {t:'<<'}; }
+      const e=s.indexOf('>',this.p); let h=s.slice(this.p+1,e).replace(/[^0-9a-f]/gi,''); this.p=e+1; if(h.length%2) h+='0';
+      let o=''; for(let i=0;i<h.length;i+=2) o+=String.fromCharCode(parseInt(h.substr(i,2),16)); return {t:'str',v:o}; }
+    if(c==='>'&&s[this.p+1]==='>'){ this.p+=2; return {t:'>>'}; }
+    if(c==='['||c===']'||c==='{'||c==='}'){ this.p++; return {t:c}; }
+    if(c==='/'){ let e=this.p+1; while(e<s.length&&!WS.has(s.charCodeAt(e))&&!DL.has(s.charCodeAt(e))) e++;
+      const n=s.slice(this.p+1,e).replace(/#([0-9a-f]{2})/gi,(m,h)=>String.fromCharCode(parseInt(h,16))); this.p=e; return {t:'name',v:n}; }
+    let e=this.p; while(e<s.length&&!WS.has(s.charCodeAt(e))&&!DL.has(s.charCodeAt(e))) e++; if(e===this.p) e++;
+    const w=s.slice(this.p,e); this.p=e;
+    if(/^[+\-]?(\d+\.?\d*|\.\d+)$/.test(w)) return {t:'num',v:parseFloat(w)};
+    return {t:'kw',v:w};
+  };
+  // parse one value; numbers followed by "g R" become references
+  Lexer.prototype.val=function(t){
+    t=t||this.tok(); if(!t) return null;
+    if(t.t==='num'){ const save=this.p, a=this.tok(), b=a&&a.t==='num'?this.tok():null;
+      if(a&&b&&b.t==='kw'&&b.v==='R'&&Number.isInteger(t.v)) return {ref:t.v}; this.p=save; return t.v; }
+    if(t.t==='str') return {str:t.v};
+    if(t.t==='name') return {name:t.v};
+    if(t.t==='['){ const a=[]; for(;;){ const x=this.tok(); if(!x||x.t===']') break; a.push(this.val(x)); } return a; }
+    if(t.t==='<<'){ const d={dict:true}; for(;;){ const k=this.tok(); if(!k||k.t==='>>') break; if(k.t==='name') d[k.v]=this.val(); } return d; }
+    if(t.t==='kw'){ if(t.v==='true') return true; if(t.v==='false') return false; if(t.v==='null') return null; return {kw:t.v}; }
+    return null;
+  };
+  async function inflate(u8,raw){
+    const ds=new DecompressionStream(raw?'deflate-raw':'deflate'), w=ds.writable.getWriter();
+    w.write(u8).catch(()=>{}); w.close().catch(()=>{});
+    const r=ds.readable.getReader(), parts=[]; let n=0;
+    try{ for(;;){ const {done,value}=await r.read(); if(done) break; parts.push(value); n+=value.length; } }catch(e){ if(!n) throw e; } // keep what was read before any trailing junk
+    const out=new Uint8Array(n); let o=0; for(const p of parts){ out.set(p,o); o+=p.length; } return out;
+  }
+  function a85(u){ const t=toStr(u).replace(/^\s*<~/,'').replace(/~>.*$/s,'').replace(/\s+/g,''), o=[]; let g=[];
+    for(const ch of t){ if(ch==='z'&&!g.length){ o.push(0,0,0,0); continue; } g.push(ch.charCodeAt(0)-33);
+      if(g.length===5){ let v=0; for(const d of g) v=v*85+d; o.push(v>>>24&255,v>>>16&255,v>>>8&255,v&255); g=[]; } }
+    if(g.length){ const k=g.length; while(g.length<5) g.push(84); let v=0; for(const d of g) v=v*85+d; o.push(...[v>>>24&255,v>>>16&255,v>>>8&255,v&255].slice(0,k-1)); }
+    return new Uint8Array(o); }
+  async function read(buf){
+    const s=toStr(new Uint8Array(buf));
+    if(!/^\s*%PDF/.test(s.slice(0,1024))) throw new Error('not a PDF');
+    if(/\/Encrypt\s*(\d+\s+\d+\s+R|<<)/.test(s)) throw new Error('protected PDF');
+    const objs={}, raw={};
+    const re=/(\d+)\s+(\d+)\s+obj\b/g; let m;
+    while((m=re.exec(s))){
+      const L=new Lexer(s,re.lastIndex); let v; try{ v=L.val(); }catch(e){ continue; }
+      const save=L.p, t=L.tok();
+      if(t&&t.t==='kw'&&t.v==='stream'&&v&&v.dict){
+        let st=L.p; if(s[st]==='\r') st++; if(s[st]==='\n') st++;
+        let end=-1; const len=v.Length;
+        if(typeof len==='number'&&/^\s*endstream/.test(s.substr(st+len,40))) end=st+len;
+        if(end<0){ end=s.indexOf('endstream',st); if(end<0) continue; if(s[end-1]==='\n') end--; if(s[end-1]==='\r') end--; }
+        v.stream=s.slice(st,end); re.lastIndex=end;
+      } else L.p=save;
+      objs[+m[1]]=v;
+    }
+    const get=v=>{ let n=0; while(v&&v.ref!==undefined&&n++<20) v=objs[v.ref]; return v; };
+    async function data(o){
+      o=get(o); if(!o||o.stream===undefined) return '';
+      if(o.decoded!==undefined) return o.decoded;
+      let u=bytes(o.stream); let f=get(o.Filter); f=f?(Array.isArray(f)?f.map(get):[f]):[];
+      for(const x of f){ const n=x&&x.name;
+        if(n==='FlateDecode'||n==='Fl'){ try{ u=await inflate(u); }catch(e){ u=await inflate(u.subarray(2),true); } }
+        else if(n==='ASCII85Decode'||n==='A85') u=a85(u);
+        else if(n==='ASCIIHexDecode'||n==='AHx'){ let h=toStr(u).replace(/>.*$/s,'').replace(/[^0-9a-f]/gi,''); if(h.length%2) h+='0'; u=new Uint8Array(h.length/2); for(let i=0;i<u.length;i++) u[i]=parseInt(h.substr(i*2,2),16); }
+        else throw new Error('unsupported PDF filter '+n); }
+      return (o.decoded=toStr(u));
+    }
+    // compressed object streams
+    for(const k of Object.keys(objs)){ const o=objs[k];
+      if(o&&o.dict&&o.Type&&o.Type.name==='ObjStm'&&o.stream!==undefined){
+        const d=await data(o), L=new Lexer(d,0), N=get(o.N)||0, first=get(o.First)||0, idx=[];
+        for(let i=0;i<N;i++){ const a=L.tok(), b=L.tok(); if(!a||!b) break; idx.push([a.v,b.v]); }
+        for(const [num,off] of idx){ if(objs[num]!==undefined) continue; try{ objs[num]=new Lexer(d,first+off).val(); }catch(e){} }
+      } }
+    // pages in reading order
+    const pages=[]; const seen=new Set();
+    const walk=(node,inh)=>{ node=get(node); if(!node||!node.dict||seen.has(node)) return; seen.add(node);
+      const res=node.Resources!==undefined?node.Resources:inh;
+      if(node.Kids) get(node.Kids).forEach(k=>walk(k,res)); else if(!node.Type||node.Type.name==='Page') pages.push({node,res}); };
+    const cat=Object.values(objs).find(o=>o&&o.dict&&o.Type&&o.Type.name==='Catalog');
+    if(cat) walk(cat.Pages,null);
+    if(!pages.length) Object.values(objs).forEach(o=>{ if(o&&o.dict&&o.Type&&o.Type.name==='Page') pages.push({node:o,res:o.Resources}); });
+    if(!pages.length) throw new Error('no pages found');
+    const fontCache=new Map(), items=[];
+    for(let pi=0;pi<pages.length;pi++){
+      const pg=pages[pi]; let c=get(pg.node.Contents); c=Array.isArray(c)?c:[c];
+      let txt=''; for(const x of c) txt+=(await data(x))+'\n';
+      const glyphs=[]; await runContent(txt,get(pg.res),[1,0,0,1,0,0],glyphs,0);
+      merge(glyphs,pi+1,items);
+    }
+    return items;
+
+    async function font(fo){
+      fo=get(fo); if(!fo) return null; if(fontCache.has(fo)) return fontCache.get(fo);
+      const f={two:false,map:null,widths:{},dw:1000,scale:0.001};
+      const sub=fo.Subtype&&fo.Subtype.name;
+      if(sub==='Type0'){ f.two=true; const df=get((get(fo.DescendantFonts)||[])[0])||{};
+        f.dw=get(df.DW)||1000; const W=get(df.W)||[];
+        for(let i=0;i<W.length;){ const a=get(W[i]), b=get(W[i+1]);
+          if(Array.isArray(b)){ b.forEach((w,j)=>f.widths[a+j]=get(w)); i+=2; } else { const w=get(W[i+2]); for(let k=a;k<=b;k++) f.widths[k]=w; i+=3; } }
+      } else {
+        const fc=get(fo.FirstChar)||0, W=get(fo.Widths)||[]; W.forEach((w,i)=>f.widths[fc+i]=get(w));
+        const fd=get(fo.FontDescriptor), bn=((fo.BaseFont||{}).name||'').replace(/^[A-Z]{6}\+/,'');
+        f.dw=(fd&&get(fd.MissingWidth))||(/Courier/i.test(bn)?600:500);
+        if(!W.length&&!/Courier|Symbol|Dingbats/i.test(bn)){ const t=STD[(/Times|Serif/i.test(bn)?'Times-':'Helvetica')+(/Bold/i.test(bn)?(/Times|Serif/i.test(bn)?'Bold':'-Bold'):(/Times|Serif/i.test(bn)?'Roman':''))]; t.forEach((w,i)=>f.widths[32+i]=w); }
+        if(sub==='Type3'&&fo.FontMatrix) f.scale=get(fo.FontMatrix)[0]||0.001;
+        // simple encodings
+        const enc=get(fo.Encoding); const base=new Array(256); const dec=new TextDecoder('windows-1252');
+        for(let i=0;i<256;i++) base[i]=dec.decode(new Uint8Array([i]));
+        if(enc&&enc.Differences){ let code=0; for(const d of get(enc.Differences)){ const x=get(d); if(typeof x==='number') code=x; else if(x&&x.name){ base[code++]=glyphName(x.name); } } }
+        f.base=base;
+      }
+      if(fo.ToUnicode){ const tu=get(fo.ToUnicode); if(tu&&tu.stream!==undefined) f.map=cmap(await data(tu)); }
+      if(f.two&&!f.map) throw new Error('font without text map');
+      fontCache.set(fo,f); return f;
+    }
+    async function runContent(txt,res,ctm0,glyphs,depth){
+      const L=new Lexer(txt,0); let ops=[]; let ctm=ctm0.slice(); const stack=[];
+      let tm=[1,0,0,1,0,0], tlm=[1,0,0,1,0,0], F=null, fs=0, Tc=0, Tw=0, Th=1, TL=0, rise=0;
+      const fonts=get(res&&res.Font)||{}, xo=get(res&&res.XObject)||{};
+      const mul=(a,b)=>[a[0]*b[0]+a[1]*b[2],a[0]*b[1]+a[1]*b[3],a[2]*b[0]+a[3]*b[2],a[2]*b[1]+a[3]*b[3],a[4]*b[0]+a[5]*b[2]+b[4],a[4]*b[1]+a[5]*b[3]+b[5]];
+      const show=(str,adj)=>{ if(!F) return; let first=!adj;
+        const M=mul(tm,ctm), sy=Math.hypot(M[2],M[3])||1, efs=fs*sy;
+        if(adj){ const tx=-adj/1000*fs*Th; tm=mul([1,0,0,1,tx,0],tm); return; }
+        for(let i=0;i<str.length;){ let code,ch;
+          if(F.two){ code=(str.charCodeAt(i)<<8)|(str.charCodeAt(i+1)||0); i+=2; }
+          else { code=str.charCodeAt(i); i+=1; }
+          ch=F.map&&F.map[code]!==undefined?F.map[code]:(F.two?'':(F.base[code]||''));
+          const w=(F.widths[code]!==undefined?F.widths[code]:F.dw)*F.scale;
+          const adv=(w*fs+Tc+(!F.two&&code===32?Tw:0))*Th;
+          const R=mul([1,0,0,1,0,rise],mul(tm,ctm)), R2=mul([1,0,0,1,w*fs*Th,rise],mul(tm,ctm));
+          glyphs.push({ch,x0:R[4],y:R[5],x1:R2[4],fs:efs,op:first}); first=false;
+          tm=mul([1,0,0,1,adv,0],tm);
+        } };
+      const nl=(tx,ty)=>{ tlm=mul([1,0,0,1,tx,ty],tlm); tm=tlm.slice(); };
+      for(;;){ const t=L.tok(); if(!t) break;
+        if(t.t!=='kw'){ ops.push(L.val(t)); continue; }
+        const op=t.v, a=ops; ops=[]; const n=i=>{ const x=a[i]; return typeof x==='number'?x:0; };
+        switch(op){
+          case 'BI': { const e=txt.indexOf('EI',L.p); let p=txt.indexOf('ID',L.p); p=p<0?e:p; let q=p+3;
+            while(q<txt.length){ const k=txt.indexOf('EI',q); if(k<0){ q=txt.length; break; } if(WS.has(txt.charCodeAt(k-1))&&(k+2>=txt.length||WS.has(txt.charCodeAt(k+2)))){ q=k+2; break; } q=k+2; }
+            L.p=q; break; }
+          case 'q': stack.push(ctm.slice()); break;
+          case 'Q': if(stack.length) ctm=stack.pop(); break;
+          case 'cm': ctm=mul([n(0),n(1),n(2),n(3),n(4),n(5)],ctm); break;
+          case 'BT': tm=[1,0,0,1,0,0]; tlm=[1,0,0,1,0,0]; break;
+          case 'Tf': F=await font(fonts[(a[0]||{}).name]); fs=n(1); break;
+          case 'Tc': Tc=n(0); break; case 'Tw': Tw=n(0); break; case 'Tz': Th=n(0)/100; break; case 'TL': TL=n(0); break; case 'Ts': rise=n(0); break;
+          case 'Td': nl(n(0),n(1)); break;
+          case 'TD': TL=-n(1); nl(n(0),n(1)); break;
+          case 'Tm': tlm=[n(0),n(1),n(2),n(3),n(4),n(5)]; tm=tlm.slice(); break;
+          case 'T*': nl(0,-TL); break;
+          case 'Tj': if(a[0]&&a[0].str!==undefined) show(a[0].str); break;
+          case "'": nl(0,-TL); if(a[0]&&a[0].str!==undefined) show(a[0].str); break;
+          case '"': Tw=n(0); Tc=n(1); nl(0,-TL); if(a[2]&&a[2].str!==undefined) show(a[2].str); break;
+          case 'TJ': for(const x of (a[0]||[])){ if(typeof x==='number') show('',x); else if(x&&x.str!==undefined) show(x.str); } break;
+          case 'Do': { const x=get(xo[(a[0]||{}).name]);
+            if(x&&x.Subtype&&x.Subtype.name==='Form'&&depth<8){ const mtx=get(x.Matrix)||[1,0,0,1,0,0];
+              await runContent(await data(x),get(x.Resources)||res,mul(mtx,ctm),glyphs,depth+1); } break; }
+        } }
+    }
+  }
+  // join glyphs into text pieces the same way PDF.js does (small gap = same word, medium gap = space, big gap = new piece)
+  function merge(gs,p,out){
+    let cur=null;
+    const flush=()=>{ if(cur){ const t=cur.s.replace(/\s+/g,' ').trim(); if(t) out.push({s:t,x:cur.x,y:cur.y,w:cur.xe-cur.x,p}); cur=null; } };
+    for(const g of gs){ if(!g.ch) continue;
+      if(cur){ const gap=g.x0-cur.x1, f=Math.max(cur.fs,g.fs)||1;
+        if(Math.abs(g.y-cur.y)<f*0.3&&gap>(g.op?-f*0.2:-f*0.5)&&gap<(g.op?f*0.3:f*0.6)){ cur.s+=(gap>f*0.102&&!/\s$/.test(cur.s)&&g.ch!==' '?' ':'')+g.ch; cur.x1=Math.max(cur.x1,g.x1); if(g.ch.trim()) cur.xe=Math.max(cur.xe,g.x1); continue; }
+        flush(); }
+      cur={s:g.ch,x:g.x0,y:g.y,x1:g.x1,xe:g.ch.trim()?g.x1:g.x0,fs:g.fs};
+    }
+    flush();
+  }
+  function cmap(t){
+    const map={}, L=new Lexer(t,0); const hex=v=>{ let n=0; for(let i=0;i<v.length;i++) n=n*256+v.charCodeAt(i); return n; };
+    const uni=v=>{ let o=''; for(let i=0;i+1<v.length;i+=2) o+=String.fromCharCode((v.charCodeAt(i)<<8)|v.charCodeAt(i+1)); if(v.length===1) o=v; return o; };
+    let mode=null; const buf=[];
+    for(;;){ const tk=L.tok(); if(!tk) break;
+      if(tk.t==='kw'){ if(tk.v==='beginbfchar'||tk.v==='beginbfrange'){ mode=tk.v; buf.length=0; continue; }
+        if(tk.v==='endbfchar'){ for(let i=0;i+1<buf.length;i+=2) if(typeof buf[i]==='string'&&typeof buf[i+1]==='string') map[hex(buf[i])]=uni(buf[i+1]); mode=null; continue; }
+        if(tk.v==='endbfrange'){ for(let i=0;i+2<buf.length;i+=3){ const lo=hex(buf[i]), hi=hex(buf[i+1]), d=buf[i+2];
+            if(Array.isArray(d)) d.forEach((x,j)=>map[lo+j]=uni(x));
+            else if(typeof d==='string'){ const base=uni(d); for(let k=lo;k<=hi&&k-lo<65536;k++) map[k]=base.slice(0,-1)+String.fromCharCode(base.charCodeAt(base.length-1)+(k-lo)); } }
+          mode=null; continue; }
+        continue; }
+      if(!mode) continue;
+      if(tk.t==='str') buf.push(tk.v);
+      else if(tk.t==='['){ const arr=[]; for(;;){ const x=L.tok(); if(!x||x.t===']') break; if(x.t==='str') arr.push(x.v); } buf.push(arr); }
+    }
+    return map;
+  }
+  const STD={'Helvetica':[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584],'Helvetica-Bold':[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584],'Times-Roman':[250,333,408,500,500,833,778,180,333,333,500,564,250,333,250,278,500,500,500,500,500,500,500,500,500,500,278,278,564,564,564,444,921,722,667,667,722,611,556,722,722,333,389,722,611,889,722,722,556,722,667,556,611,722,722,944,722,722,611,333,278,333,469,500,333,444,500,444,500,444,333,500,500,278,278,500,278,778,500,500,500,500,333,389,278,500,500,722,500,500,444,480,200,480,541],'Times-Bold':[250,333,555,500,500,1000,833,278,333,333,500,570,250,333,250,278,500,500,500,500,500,500,500,500,500,500,333,333,570,570,570,500,930,722,667,722,722,667,611,778,778,389,500,778,667,944,722,778,611,778,722,556,667,722,722,1000,722,722,667,333,278,333,581,500,333,500,556,444,556,444,333,500,556,278,333,556,278,833,556,500,556,556,444,389,333,556,500,722,500,500,444,394,220,394,520]}; // widths of chars 32-126 for the built-in PDF fonts
+  const GN={space:' ',exclam:'!',quotedbl:'"',numbersign:'#',dollar:'$',percent:'%',ampersand:'&',quotesingle:"'",quoteright:'’',quoteleft:'‘',parenleft:'(',parenright:')',asterisk:'*',plus:'+',comma:',',hyphen:'-',minus:'−',endash:'–',emdash:'—',period:'.',slash:'/',colon:':',semicolon:';',less:'<',equal:'=',greater:'>',question:'?',at:'@',bracketleft:'[',backslash:'\\',bracketright:']',underscore:'_',bar:'|',braceleft:'{',braceright:'}',degree:'°',bullet:'•',nbspace:' ',
+    zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'};
+  function glyphName(n){ if(GN[n]) return GN[n]; if(/^[A-Za-z]$/.test(n)) return n;
+    let m=n.match(/^uni([0-9A-F]{4})/i); if(m) return String.fromCharCode(parseInt(m[1],16));
+    m=n.match(/^u([0-9A-F]{4,6})$/i); if(m) return String.fromCodePoint(parseInt(m[1],16));
+    const b=n.split(/[._]/)[0]; if(b!==n) return glyphName(b); return ''; }
+  return {read};
+})();
+// Mozilla PDF.js on this same site — only used if the built-in reader can't read a PDF
+let pdfLocal=null;
+function loadPdfLocal(){
+  if(pdfLocal) return pdfLocal;
   pdfLocal=(async()=>{
-    const lib=await import(absUrl('lib/pdf.min.mjs',bust));
-    lib.GlobalWorkerOptions.workerSrc=absUrl('lib/pdf.worker.min.mjs',bust);
+    const lib=await import(new URL('lib/pdf.min.mjs',location.href).href);
+    lib.GlobalWorkerOptions.workerSrc=new URL('lib/pdf.worker.min.mjs',location.href).href;
     return lib;
   })().catch(e=>{ pdfLocal=null; throw e; });
   return pdfLocal;
-}
-function loadPdfCdn(){
-  if(pdfCdn) return pdfCdn;
-  pdfCdn=new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    s.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(window.pdfjsLib);}catch(e){rej(e);} };
-    s.onerror=()=>rej(new Error('backup PDF reader could not load'));
-    document.head.appendChild(s);
-  }).catch(e=>{ pdfCdn=null; throw e; });
-  return pdfCdn;
 }
 async function readPdfWith(lib,bytes){
   const task=lib.getDocument({data:bytes,isEvalSupported:false});
@@ -1190,16 +1397,10 @@ async function readPdfWith(lib,bytes){
   } finally { try{ task.destroy(); }catch(e){} }
 }
 async function pdfToItems(file){
-  const buf=await file.arrayBuffer(); let last=null;
-  const attempts=[()=>loadPdfLocal(false), ()=>loadPdfLocal(true), ()=>loadPdfCdn()];
-  for(let i=0;i<attempts.length;i++){
-    try{
-      if(i>0) setMsg('voyMsg','warn',i===1?'Reading the PDF… trying again.':'Reading the PDF… using the backup reader.');
-      const lib=await attempts[i]();
-      return await readPdfWith(lib,new Uint8Array(buf.slice(0)));
-    }catch(e){ last=e; }
-  }
-  throw last||new Error('PDF reader could not load');
+  const buf=await file.arrayBuffer();
+  try{ const items=await miniPdf.read(buf.slice(0)); if(items.length) return items; }
+  catch(e){ console.warn('built-in PDF reader:',e.message||e); }
+  return await readPdfWith(await loadPdfLocal(),new Uint8Array(buf.slice(0)));
 }
 function itemsToLines(items){
   const lines=[]; const sorted=items.slice().sort((a,b)=>a.p-b.p||b.y-a.y||a.x-b.x);
@@ -1297,7 +1498,7 @@ async function handleFile(file){
     $('voyText').value=text;
     applyVoyage(list,(vn?'Voyage '+vn[1]+' · ':'')+file.name,text);
   }catch(err){
-    setMsg('voyMsg','bad','Couldn’t read the PDF on this connection. Check the internet and try again, or open the PDF, select all, copy, and paste the text under “paste the voyage plan text”. <span class="muted">('+esc(err.message||err)+')</span>');
+    setMsg('voyMsg','bad','Couldn’t read this PDF. Open the PDF, select all, copy, and paste the text under “paste the voyage plan text”. <span class="muted">('+esc(err.message||err)+')</span>');
   }
 }
 $('drop').onclick=()=>$('pdfFile').click();
@@ -1314,6 +1515,10 @@ $('pdfFile').onchange=e=>handleFiles(e.target.files);
 ['dragover','dragenter'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.add('over');}));
 ['dragleave','drop'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.remove('over');}));
 $('drop').addEventListener('drop',e=>handleFiles(e.dataTransfer.files,e.dataTransfer.getData('text/plain')));
+// a file dropped anywhere else on the page: load it here instead of letting the browser open it as a new page
+const hasFiles=e=>!!e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files');
+window.addEventListener('dragover',e=>{ if(hasFiles(e)){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; } });
+window.addEventListener('drop',e=>{ if(e.defaultPrevented||!hasFiles(e)) return; e.preventDefault(); handleFiles(e.dataTransfer.files); });
 
 /* ---- now panel ---- */
 function renderNow(){
@@ -1831,7 +2036,7 @@ function shipPosition(now){
 }
 let posMap=null, posLayer=null, leafletTried=false;
 function loadLeaflet(){
-  if(window.claude) return Promise.reject();   // inside Claude's viewer remote map tiles can't load: use the built-in route chart
+  return Promise.reject();   // always use the built-in route chart: no outside map downloads (ship security software flags them)
   if(window.L) return Promise.resolve(window.L);
   if(leafletTried) return Promise.reject(); leafletTried=true;
   return new Promise((res,rej)=>{
