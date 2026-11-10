@@ -322,9 +322,10 @@
 
   <section class="card" id="dualCard" hidden>
     <h2 style="margin:0 0 4px">🚢 NCL ships in port</h2>
-    <div class="muted" style="font-size:13.5px">Dual calls — other Norwegian Cruise Line ships at the same port on the same day. Tap a ship for its live position.</div>
+    <div class="muted" style="font-size:13.5px">Dual calls — other Norwegian Cruise Line ships at the same port on the same day, checked automatically on CruiseMapper.com. Tap a ship for its live position.</div>
     <div class="notifybar"><span class="muted" id="notifyState"></span><button class="small" id="notifyBtn">🔔 Notify me of dual calls</button></div>
     <div id="dualBody"></div>
+    <div class="hint" id="dualSrc" style="margin-top:10px"></div>
   </section>
 
   <div class="grid2">
@@ -366,6 +367,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <div><label for="year">Voyage year</label><input id="year" type="number" min="2020" max="2100"></div>
         <div><label for="chg">Clocks change at (ship time)</label><input id="chg" type="time" value="02:00"></div>
       </div>
+      <div class="row" style="margin:0 0 10px"><div><label for="dualSvc">NCL dual-call lookup (Cloudflare Worker link, reads CruiseMapper.com)</label><input id="dualSvc" placeholder="https://ncl-dualcalls.….workers.dev"></div></div>
       <div class="row" style="margin:0 0 10px"><div><label for="trackUrl">Live tracker link (CruiseMapper page for your ship)</label><input id="trackUrl" placeholder="https://www.cruisemapper.com/ships/…"></div></div>
       <div class="voy"><table>
         <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th title="Other NCL ships in the same port that day">NCL in port (dual call)</th><th></th></tr></thead>
@@ -375,7 +377,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <button class="small" id="addDay">+ Add day</button>
       </div>
       <datalist id="nclFleet"></datalist>
-      <p class="hint">NCL in port: type the other ship(s) docked with us that day, separated by commas. Add its times (08:00-17:00) and pier if you know them, e.g. <i>Norwegian Getaway 08:00-17:00 Pier 2</i>.</p>
+      <p class="hint">NCL in port: other NCL ships are found automatically on CruiseMapper. You can also type ship(s) docked with us that day, separated by commas. Add its times (08:00-17:00) and pier if you know them, e.g. <i>Norwegian Getaway 08:00-17:00 Pier 2</i>.</p>
       <p class="hint">On a day whose offset differs from the day before, the change happens at the time above (default 02:00 ship time, the night going into that day).</p>
     </section>
 
@@ -814,7 +816,7 @@ function renderVoy(){
     const prev=voy[i-1]; const changed=prev&&!isNaN(e.off)&&!isNaN(prev.off)&&e.off!==prev.off;
     const diff=changed?e.off-prev.off:0;
     const badge=changed?`<span class="tag chg">${diff<0?'⟲ '+Math.abs(diff)+' hr back':'⟳ '+diff+' hr fwd'}</span>`:'';
-    const tb=(e.date===today?' <span class="tag today">today</span>':'')+(e.ships&&e.ships.trim()?' <span class="tag dual">dual call</span>':'');
+    const tb=(e.date===today?' <span class="tag today">today</span>':'')+(shipsFor(e).length?' <span class="tag dual">dual call</span>':'');
     return `<tr class="${changed?'change':''} ${e.date===today?'today':''}">
       <td><input type="date" data-i="${i}" data-k="date" value="${e.date}"></td>
       <td><input data-i="${i}" data-k="port" value="${esc(e.port||'')}"></td>
@@ -1028,7 +1030,7 @@ function runExcelPaste(fromPaste){
   xlClean=cleanItinerary(days,delta); renderClean(); if(fromPaste){ $('xlText').value=cleanTsv(); } store.set('xlClean',xlClean);
   days.forEach(e=>{ delete e.filled; delete e.x; });
   $('year').value=+days[0].date.slice(0,4); store.set('year',+days[0].date.slice(0,4));
-  applyVoyage(days,name,t); setMsg('voyMsg','','');
+  applyVoyage(days,name,t); setMsg('voyMsg','',''); setTimeout(()=>fetchDualAuto(false),200);
   setMsg('xlMsg',bad?'warn':'ok',`✓ Loaded <b>${days.length}</b> days from Excel (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
     (bad?` <b>${bad}</b> day(s) before the first time change have no UTC yet — fill the red cells below.`:'')+
     (delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':'')+(kept?` ${kept} day(s) before the first time change kept the UTC from the voyage already loaded.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
@@ -1600,7 +1602,7 @@ function renderVoySummary(){
   const nextPort=v.find(e=>e.date>(today||'')&&e.port&&!/at sea/i.test(e.port));
   $('voySumBody').innerHTML=`<div style="font-weight:600;color:var(--ink)">${esc(voyName||'Voyage plan')}</div>
     <div style="margin-top:6px">Today: <b style="color:var(--ink)">${esc(td?(td.port||'—'):'outside the voyage dates')}</b>${isNaN(s.off)?'':` · ship time UTC ${fmtOffset(s.off)}`}</div>
-    ${td&&td.ships?`<div>Dual call: <b style="color:var(--ink)">${esc(parseShips(td.ships).map(x=>x.name).join(', '))}</b> also in port</div>`:''}
+    ${td&&shipsFor(td).length?`<div>Dual call: <b style="color:var(--ink)">${esc(shipsFor(td).map(x=>x.name).join(', '))}</b> also in port</div>`:''}
     ${nextPort?`<div>Next port: <b style="color:var(--ink)">${esc(nextPort.port)}</b> · ${fmtDate(+nextPort.date.slice(0,4),+nextPort.date.slice(5,7),+nextPort.date.slice(8,10),new Date(nextPort.date+'T00:00:00Z').getUTCDay(),true)}</div>`:''}
     <div class="hint" style="margin-top:8px">${first.date} → ${last.date} · times follow the official voyage plan</div>`;
 }
@@ -1773,11 +1775,67 @@ function parseShips(txt){
   });
 }
 function liveLink(name){ return 'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(name.toUpperCase()); }
+/* ---- automatic NCL dual calls from CruiseMapper (through the lookup worker) ---- */
+const DUAL_SVC_DEFAULT='https://ncl-dualcalls.emozailanada.workers.dev';
+$('dualSvc').value=store.get('dualSvc',DUAL_SVC_DEFAULT);
+$('dualSvc').addEventListener('change',()=>{ store.set('dualSvc',$('dualSvc').value.trim()); store.set('dualAuto',{}); dualAuto={}; fetchDualAuto(true); });
+let dualAuto=store.get('dualAuto',{})||{};      // "portkey|YYYY-MM" -> {ts, ok, url, calls:[{date,ship,arr,dep}], err}
+let dualState={busy:false,last:0,err:''};
+const portKey=p=>String(p||'').toLowerCase().replace(/\(.*?\)/g,' ').replace(/,.*$/,'').replace(/\s+/g,' ').trim();
+function ownShipName(){ return ($('rShip').value||'Norwegian Escape').trim(); }
+function autoFor(e){
+  const g=dualAuto[portKey(e.port)+'|'+e.date.slice(0,7)]; if(!g||!g.ok) return [];
+  const own=ownShipName().toLowerCase();
+  return g.calls.filter(c=>c.date===e.date&&c.ship.toLowerCase()!==own).map(c=>({name:c.ship,arr:c.arr||'',dep:c.dep||'',note:'',auto:true}));
+}
+function cmLinkFor(e){ const g=dualAuto[portKey(e.port)+'|'+e.date.slice(0,7)]; return g&&g.url?g.url:''; }
+/* all other NCL ships for a day: typed by hand + found on CruiseMapper (hand-typed details win) */
+function shipsFor(e){
+  if(!e||!e.port||/at sea|cruising|scenic/i.test(e.port)) return [];
+  const out=parseShips(e.ships||'');
+  for(const a of autoFor(e)){ const m=out.find(x=>x.name.toLowerCase()===a.name.toLowerCase()); if(m){ m.auto=true; if(!m.arr){m.arr=a.arr;m.dep=a.dep;} } else out.push(a); }
+  return out;
+}
+async function fetchDualAuto(force){
+  const svc=($('dualSvc').value||'').trim().replace(/\/+$/,''); if(!svc||dualState.busy) return;
+  const now=Date.now(), s=shipLocal(voy,chg(),now), today=isNaN(s.off)?ymd(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate()):ymd(s.y,s.mo,s.d);
+  const groups={};
+  for(const e of voy){ if(!e.port||/at sea|cruising|scenic/i.test(e.port)||e.date<today) continue; const k=portKey(e.port)+'|'+e.date.slice(0,7); groups[k]=groups[k]||{port:e.port,month:e.date.slice(0,7)}; }
+  const todo=Object.entries(groups).filter(([k])=>force||!dualAuto[k]||now-dualAuto[k].ts>(dualAuto[k].ok?6:1)*3600e3);
+  if(!todo.length) return;
+  dualState.busy=true; dualState.err=''; renderDualSrc();
+  let fails=0;
+  for(const [k,g] of todo){
+    try{
+      const r=await fetch(`${svc}/?port=${encodeURIComponent(g.port)}&month=${g.month}`,{cache:'no-store'});
+      const j=await r.json().catch(()=>({}));
+      dualAuto[k]={ts:Date.now(),ok:!!j.ok,url:j.url||'',calls:Array.isArray(j.calls)?j.calls:[],err:j.ok?'':(j.error||('error '+r.status))};
+      if(!j.ok) fails++;
+    }catch(err){ fails++; if(!dualAuto[k]||!dualAuto[k].ok) dualAuto[k]={ts:Date.now(),ok:false,url:'',calls:[],err:'offline'}; else dualAuto[k].ts=Date.now()-5*3600e3; }
+  }
+  for(const k of Object.keys(dualAuto)) if(now-dualAuto[k].ts>40*864e5) delete dualAuto[k];
+  store.set('dualAuto',dualAuto); dualState.busy=false; dualState.last=Date.now();
+  dualState.err=fails===todo.length?'Couldn’t reach CruiseMapper right now — showing the last check and ships typed by hand.':(fails?`${fails} port(s) couldn’t be checked.`:'');
+  renderVoy(); renderDual(); renderDualBanner(); renderVoySummary(); checkDualNotify();
+}
+function renderDualSrc(){
+  const el=$('dualSrc'); if(!el) return;
+  const ts=Object.values(dualAuto).filter(g=>g.ok).map(g=>g.ts), latest=ts.length?Math.max(...ts):0;
+  el.innerHTML=(dualState.busy?'Checking CruiseMapper… ':'')+(latest?`NCL ships checked on CruiseMapper ${new Date(latest).toLocaleString([], {dateStyle:'medium',timeStyle:'short'})}. `:'')+
+    (dualState.err?`<span style="color:var(--warn)">${esc(dualState.err)}</span> `:'')+
+    `Source: <a href="https://www.cruisemapper.com" target="_blank" rel="noopener">CruiseMapper.com</a> · schedules can change, confirm with the ship's daily program. <button class="small" id="dualRefresh" style="margin-left:6px">↻ Check now</button>`;
+  const b=$('dualRefresh'); if(b) b.onclick=()=>fetchDualAuto(true);
+}
+setInterval(()=>fetchDualAuto(false),30*60e3);
+setTimeout(()=>fetchDualAuto(false),1500);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) fetchDualAuto(false); });
+
 function renderDual(){
   const card=$('dualCard'), h24=$('h24').checked, now=Date.now();
   const s=shipLocal(voy,chg(),now), today=isNaN(s.off)?'':ymd(s.y,s.mo,s.d), nowHM=isNaN(s.off)?'':pad(s.h)+':'+pad(s.mi);
-  const days=voy.filter(e=>e.ships&&e.ships.trim()&&e.date>=today).sort((a,b)=>a.date<b.date?-1:1);
-  if(!days.length){ card.hidden=true; return; }
+  const days=voy.filter(e=>e.date>=today&&shipsFor(e).length).sort((a,b)=>a.date<b.date?-1:1);
+  renderDualSrc();
+  if(!days.length){ card.hidden=!Object.keys(dualAuto).length&&!dualState.busy; $('dualBody').innerHTML=card.hidden?'':'<div class="muted" style="margin-top:10px">No other NCL ships in port on the upcoming itinerary.</div>'; return; }
   card.hidden=false;
   const ft=x=>{ if(!x) return ''; const [h,m]=x.split(':').map(Number); return fmtTime(h,m,h24); };
   const ownShip=($('rShip').value||'Norwegian Escape').trim();
@@ -1785,18 +1843,19 @@ function renderDual(){
     const [Y,M,D]=e.date.split('-').map(Number), wd=new Date(Date.UTC(Y,M-1,D)).getUTCDay(), isToday=e.date===today;
     const status=(a,d)=>{ if(!isToday||!a||!d) return ''; if(nowHM<a) return `<span class="st muted">arrives ${ft(a)}</span>`; if(nowHM<d) return `<span class="tag today">in port now</span>`; return `<span class="st muted">departed ${ft(d)}</span>`; };
     const ours=`<div class="dual-ship"><div><b>${esc(ownShip)}</b> <span class="muted">(us)</span>${e.arr||e.dep?` · ${ft(e.arr)||'—'}–${ft(e.dep)||'—'}`:''} ${status(e.arr,e.dep)}</div><a href="${esc(($('trackUrl').value||'').trim()||liveLink(ownShip))}" target="_blank" rel="noopener">Live position ↗</a></div>`;
-    const others=parseShips(e.ships).map(x=>`<div class="dual-ship"><div><b>${esc(x.name)}</b>${x.arr?` · ${ft(x.arr)}–${ft(x.dep)}`:''}${x.note?` · <span class="muted">${esc(x.note)}</span>`:''} ${status(x.arr,x.dep)}</div><a href="${liveLink(x.name)}" target="_blank" rel="noopener">Live position ↗</a></div>`).join('');
-    return `<div class="dual-day${isToday?' now':''}"><div class="dh"><span>${esc(e.port||'Port')}</span><span class="muted">${isToday?'<span class="tag today">today</span> ':''}${fmtDate(Y,M,D,wd,true)}</span></div>${ours}${others}</div>`;
+    const others=shipsFor(e).map(x=>`<div class="dual-ship"><div><b>${esc(x.name)}</b>${x.arr||x.dep?` · ${ft(x.arr)||'—'}–${ft(x.dep)||'—'}`:''}${x.note?` · <span class="muted">${esc(x.note)}</span>`:''} ${status(x.arr,x.dep)}</div><a href="${liveLink(x.name)}" target="_blank" rel="noopener">Live position ↗</a></div>`).join('');
+    const cm=cmLinkFor(e);
+    return `<div class="dual-day${isToday?' now':''}"><div class="dh"><span>${esc(e.port||'Port')}${cm?` <a href="${esc(cm)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:var(--accent);text-decoration:none">port schedule ↗</a>`:''}</span><span class="muted">${isToday?'<span class="tag today">today</span> ':''}${fmtDate(Y,M,D,wd,true)}</span></div>${ours}${others}</div>`;
   }).join('');
 }
 
 /* ---- dual-call notifications: on-page banner + device notification (day before & morning of) ---- */
 function dualCalls(){
   const now=Date.now(), s=shipLocal(voy,chg(),now), today=isNaN(s.off)?'':ymd(s.y,s.mo,s.d);
-  return voy.filter(e=>e.ships&&e.ships.trim()&&e.port&&!/at sea/i.test(e.port)&&e.date>=today).sort((a,b)=>a.date<b.date?-1:1)
+  return voy.filter(e=>e.date>=today&&shipsFor(e).length).sort((a,b)=>a.date<b.date?-1:1)
     .map(e=>{ const [Y,M,D]=e.date.split('-').map(Number); const off=isNaN(e.off)?(isNaN(s.off)?0:s.off):e.off;
       const days=Math.round((Date.UTC(Y,M-1,D)-Date.UTC(s.y,s.mo-1,s.d))/864e5);
-      return {e,Y,M,D,days,ships:parseShips(e.ships).map(x=>x.name),dayStart:Date.UTC(Y,M-1,D)-off*3600e3}; });
+      return {e,Y,M,D,days,ships:shipsFor(e).map(x=>x.name),dayStart:Date.UTC(Y,M-1,D)-off*3600e3}; });
 }
 function dualWhen(c){ const wd=new Date(Date.UTC(c.Y,c.M-1,c.D)).getUTCDay(); return c.days===0?'today':c.days===1?'tomorrow':`${WDL[wd]} ${c.D} ${MON(c.M)} (in ${c.days} days)`; }
 function renderDualBanner(){
