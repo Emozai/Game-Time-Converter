@@ -191,6 +191,11 @@
   .xltbl td{padding:5px 8px;border-top:1px solid var(--line)}
   .xltbl tr.sea td{color:var(--muted);background:var(--accent-soft)}
   .xltbl td.tchg{font-weight:700;color:var(--warn)}
+  .srcbox{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+  .srcbox .src{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .srcbox .src.off{color:var(--muted)}
+  .srcbox .comb{border-top:1px dashed var(--line);padding-top:6px;font-weight:600}
+  #xlText.over{outline:2px dashed var(--accent);outline-offset:2px}
   #xlText{min-height:96px;font-family:var(--mono);font-size:12.5px;white-space:pre;overflow:auto}
   .toggle{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);font-weight:500;margin:0}
   .toggle input{width:auto}
@@ -331,19 +336,20 @@
     <!-- VOYAGE PLAN (admin) -->
     <section class="card admin-only">
       <h2><span class="step">1</span>Voyage plan</h2>
-      <p class="sub">Load the voyage plan PDF. Ship time comes from its daily UTC offsets. Check the table and edit any cell if needed.</p>
+      <p class="sub">Load the voyage plan PDF <b>and/or</b> the itinerary from Excel — they are combined by date. The voyage plan gives the daily UTC offsets, the itinerary gives ports, times and time changes. Check the table and edit any cell if needed.</p>
       <div class="droprow">
         <div class="drop" id="drop">
-          <input type="file" id="pdfFile" accept=".pdf,application/pdf,.txt" hidden>
-          <b>Choose voyage plan PDF</b> or drop it here
+          <input type="file" id="pdfFile" accept=".pdf,application/pdf,.txt,.xlsx,.csv,.tsv,text/csv" multiple hidden>
+          <b>Choose files</b> or drop them here — voyage plan PDF and/or itinerary Excel (.xlsx / .csv)
           <div class="hint" id="voyName"></div>
         </div>
         <button id="clearVoy" class="clearbtn" title="Remove the loaded voyage plan">✕ Clear</button>
       </div>
+      <div id="srcBox" class="srcbox" hidden></div>
       <div id="clearConfirm" class="msg warn" hidden>Remove the loaded voyage plan? <button class="small" id="clearYes">Yes, clear it</button> <button class="small" id="clearNo">Cancel</button></div>
       <div id="voyMsg" class="msg"></div>
       <div class="xl" id="xlBox">
-        <div class="xlhead"><b>📋 Paste itinerary from Excel</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste below. It is tidied to Cruise, Date, Week Day, Day, Location, Country, Arrival, Departure and Time Change, and ship time is worked out automatically.</span></div>
+        <div class="xlhead"><b>📋 Paste itinerary from Excel</b><span class="hint">In Excel, select the itinerary rows <b>with the header row</b> → Copy → paste (or drag the selection) below. It is tidied to Cruise, Date, Week Day, Day, Location, Country, Arrival, Departure and Time Change, and ship time is worked out automatically.</span></div>
         <textarea id="xlText" placeholder="Cruise	Date	Week Day	Day	Ship	Location	Country	Berthing Method	Pier	Arrival Time	Departure Time	…
 ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	…	-5"></textarea>
         <div id="xlMsg" class="msg"></div>
@@ -797,6 +803,54 @@ function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function chg(){return $('chg').value||'02:00';}
 function save(){store.set('voy',voy);store.set('voyName',voyName);store.set('localStamp',Date.now());}
+/* two sources, combined by date: the voyage plan (PDF / pasted text) and the itinerary (Excel) */
+let srcVoy=store.get('srcVoy',null), srcItin=store.get('srcItin',null);
+if(!srcVoy&&!srcItin&&voy.length){ if(/^(cruise|itinerary)\b/i.test(voyName||'')) srcItin={name:voyName,days:voy.map(e=>({...e}))}; else srcVoy={name:voyName,days:voy.map(e=>({...e}))}; }
+const isSea=p=>!p||/at sea|cruising|scenic/i.test(p);
+function combineSources(){
+  const V=srcVoy?srcVoy.days:[], I=srcItin?srcItin.days:[], map=new Map(); let differ=0, filledFromVoy=0;
+  for(const e of V) map.set(e.date,{date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:e.off==null?NaN:+e.off,ships:e.ships||''});
+  for(const e of I){
+    const v=map.get(e.date);
+    if(!v){ map.set(e.date,{date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:e.off==null?NaN:+e.off,ships:e.ships||''}); continue; }
+    // itinerary: ports and times; voyage plan: UTC offset
+    if(e.port&&!(isSea(e.port)&&v.port&&!isSea(v.port))) v.port=e.port;
+    if(e.arr||e.dep||isSea(e.port)){ v.arr=e.arr||''; v.dep=e.dep||''; }
+    if(e.ships) v.ships=e.ships;
+    const io=e.off==null?NaN:+e.off;
+    if(isNaN(v.off)){ v.off=io; } else if(!isNaN(io)&&io!==v.off){ differ++; }
+    if(!isNaN(v.off)&&isNaN(io)) filledFromVoy++;
+  }
+  const list=[...map.values()].sort((a,b)=>a.date<b.date?-1:1).map(e=>({...e,off:e.off==null?NaN:e.off}));
+  return {list,differ,filledFromVoy};
+}
+function setVoySource(kind,days,name){
+  const keep=days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:isNaN(e.off)?null:e.off,ships:e.ships||''}));
+  if(kind==='voy') srcVoy=days.length?{name,days:keep}:null; else srcItin=days.length?{name,days:keep}:null;
+  store.set('srcVoy',srcVoy); store.set('srcItin',srcItin);
+  return rebuildVoy();
+}
+function rebuildVoy(){
+  const r=combineSources();
+  voy=r.list.map(e=>({...e,off:e.off==null?NaN:e.off}));
+  voyName=[srcVoy&&srcVoy.name,srcItin&&srcItin.name].filter(Boolean).join(' + ');
+  save(); renderSources(r); return r;
+}
+function renderSources(r){
+  const box=$('srcBox'); if(!box) return;
+  if(!srcVoy&&!srcItin){ box.hidden=true; return; }
+  r=r||combineSources(); box.hidden=false;
+  const span=d=>d&&d.days.length?`${d.days[0].date} → ${d.days[d.days.length-1].date} · ${d.days.length} days`:'';
+  const row=(icon,label,d,k)=>d?`<div class="src"><span>${icon} <b>${label}:</b> ${esc(d.name)} <span class="muted">(${span(d)})</span></span><button class="small" data-rm="${k}">Remove</button></div>`
+    :`<div class="src off"><span>${icon} ${label}: not loaded</span></div>`;
+  box.innerHTML=row('📄','Voyage plan',srcVoy,'voy')+row('📋','Itinerary',srcItin,'itin')+
+    (srcVoy&&srcItin?`<div class="comb">Combined: ${r.list.length} days (${r.list[0].date} → ${r.list[r.list.length-1].date})${r.differ?` <span style="color:var(--warn);font-weight:500">· ${r.differ} day(s) where the itinerary's time change differs from the voyage plan — the voyage plan UTC is used</span>`:''}</div>`:'');
+  box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
+    if(b.dataset.rm==='voy'){ srcVoy=null; $('pdfFile').value=''; $('voyText').value=''; setMsg('voyMsg','ok','Voyage plan removed.'); }
+    else { srcItin=null; xlClean=[]; store.set('xlClean',[]); $('xlText').value=''; renderClean(); setMsg('xlMsg','ok','Itinerary removed.'); }
+    store.set('srcVoy',srcVoy); store.set('srcItin',srcItin); rebuildVoy(); renderAll();
+  });
+}
 
 function shipTodayDate(){ const s=shipLocal(voy,chg(),Date.now()); return isNaN(s.off)?null:ymd(s.y,s.mo,s.d); }
 
@@ -843,10 +897,10 @@ function setMsg(id,kind,html){ const el=$(id); el.className='msg '+(html?kind:''
 
 function applyVoyage(list,name,text){
   if(!list.length){ setMsg('voyMsg','bad','Couldn’t find any day rows (lines starting with a date like <b>8-Nov</b>). Try pasting the text instead, or edit the table by hand.'); return; }
-  voy=list; voyName=name; save();
+  const r=setVoySource('voy',list,name);
   const bad=list.filter(e=>isNaN(e.off)).length;
-  setMsg('voyMsg',bad?'warn':'ok',`Read <b>${list.length}</b> days (${list[0].date} → ${list[list.length-1].date}).`+(bad?` <b>${bad}</b> day(s) had no readable UTC offset (marked red) — please fill them in.`:' Please check the UTC column against the PDF.'));
-  renderAll();
+  setMsg('voyMsg',bad?'warn':'ok',`Voyage plan: read <b>${list.length}</b> days (${list[0].date} → ${list[list.length-1].date}).`+(bad?` <b>${bad}</b> day(s) had no readable UTC offset (marked red) — please fill them in.`:' Please check the UTC column against the PDF.')+(srcItin?` Combined with the itinerary: <b>${r.list.length}</b> days.`:''));
+  renderAll(); setTimeout(()=>fetchDualAuto(false),200);
 }
 $('voyParse').onclick=()=>{
   const t=$('voyText').value; const y=inferYear(t)||+$('year').value||new Date().getFullYear(); $('year').value=y; store.set('year',y);
@@ -1015,18 +1069,23 @@ function runExcelPaste(fromPaste){
   const {days,note,name:nm,delta}=parseExcelItinerary(t,y); const name=nm||'Itinerary (pasted from Excel)';
   if(days.length<1){ setMsg('xlMsg','bad','No itinerary rows found. Copy the rows from Excel including the <b>Date</b> column (and the header row if you can).'); return; }
   days.forEach(e=>{ if(!e.ships){ const o=voy.find(v=>v.date===e.date&&v.ships&&(v.port||'').split(',')[0].toLowerCase()===(e.port||'').split(',')[0].toLowerCase()); if(o) e.ships=o.ships; } });
-  let kept=0; days.forEach(e=>{ if(isNaN(e.off)){ const o=voy.find(v=>v.date===e.date&&!isNaN(v.off)); if(o){ e.off=o.off; kept++; } } });
+  let kept=0; const vref=srcVoy?srcVoy.days:[]; days.forEach(e=>{ if(isNaN(e.off)){ const o=vref.find(v=>v.date===e.date&&v.off!=null&&!isNaN(v.off)); if(o){ e.off=+o.off; kept++; } } });
   const filled=days.filter(e=>e.filled).length, bad=days.filter(e=>isNaN(e.off)).length;
   const dc=days.filter(e=>e.ships&&e.ships.trim()).length; if(dc&&fromPaste) setTimeout(()=>toast(`🚢 ${dc} dual call${dc>1?'s':''} on this itinerary`),300);
   xlClean=cleanItinerary(days,delta); renderClean(); if(fromPaste){ $('xlText').value=cleanTsv(); } store.set('xlClean',xlClean);
   days.forEach(e=>{ delete e.filled; delete e.x; });
   $('year').value=+days[0].date.slice(0,4); store.set('year',+days[0].date.slice(0,4));
-  applyVoyage(days,name,t); setMsg('voyMsg','',''); setTimeout(()=>fetchDualAuto(false),200);
-  setMsg('xlMsg',bad?'warn':'ok',`✓ Loaded <b>${days.length}</b> days from Excel (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
+  const r=setVoySource('itin',days,name); renderAll(); setMsg('voyMsg','',''); setTimeout(()=>fetchDualAuto(false),200);
+  setMsg('xlMsg',bad?'warn':'ok',`✓ Itinerary: loaded <b>${days.length}</b> days (${days[0].date} → ${days[days.length-1].date}). Ship time and all game times are recalculated.`+
     (bad?` <b>${bad}</b> day(s) before the first time change have no UTC yet — fill the red cells below.`:'')+
-    (delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':'')+(kept?` ${kept} day(s) before the first time change kept the UTC from the voyage already loaded.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
+    (delta?' Time Change column applied (first value = ship UTC, then hours forward/back).':'')+(kept?` ${kept} day(s) without a time change use the UTC from the voyage plan.`:'')+(srcVoy?` Combined with the voyage plan: <b>${r.list.length}</b> days.`:'')+(filled?` ${filled} day(s) with no change kept the day before’s time.`:'')+note);
 }
 let xlPasting=false;
+$('xlText').addEventListener('dragover',e=>{ e.preventDefault(); $('xlText').classList.add('over'); });
+$('xlText').addEventListener('dragleave',()=>$('xlText').classList.remove('over'));
+$('xlText').addEventListener('drop',e=>{ e.preventDefault(); $('xlText').classList.remove('over');
+  if(e.dataTransfer.files&&e.dataTransfer.files.length) return handleFiles(e.dataTransfer.files);
+  const t=e.dataTransfer.getData('text/plain'); if(t) loadItineraryText(t); });
 $('xlText').addEventListener('paste',()=>{ xlPasting=true; clearTimeout(xlTimer); xlTimer=setTimeout(()=>{ xlPasting=false; runExcelPaste(true); },50); });
 $('xlText').addEventListener('input',()=>{ if(xlPasting) return; clearTimeout(xlTimer); xlTimer=setTimeout(()=>runExcelPaste(false),600); });
 xlClean=store.get('xlClean',[])||[]; if(xlClean.length){ $('xlText').value=cleanTsv(); renderClean(); }
@@ -1104,6 +1163,59 @@ function parseVoyageItems(items,year){
   let y=year, prev=null;
   return out.map(e=>{ if(prev!==null&&e.mon<prev-6) y++; prev=e.mon; return {date:ymd(y,e.mon,e.day),off:e.off,port:e.port}; });
 }
+/* minimal .xlsx reader (zip + XML) — first worksheet to tab-separated text */
+async function inflateRaw(u8){ const ds=new DecompressionStream('deflate-raw'); const w=ds.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(ds.readable).arrayBuffer()); }
+async function unzip(buf){
+  const u=new Uint8Array(buf), dv=new DataView(buf), out={}; let e=u.length-22;
+  while(e>=0&&dv.getUint32(e,true)!==0x06054b50) e--; if(e<0) throw new Error('not a zip');
+  let p=dv.getUint32(e+16,true); const n=dv.getUint16(e+10,true);
+  for(let i=0;i<n;i++){
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), xl=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u.subarray(p+46,p+46+nl)); p+=46+nl+xl+cl;
+    const ds=off+30+dv.getUint16(off+26,true)+dv.getUint16(off+28,true), data=u.subarray(ds,ds+csize);
+    out[name]=async()=>new TextDecoder().decode(method===0?data:await inflateRaw(data));
+  }
+  return out;
+}
+async function xlsxToTsv(file){
+  const z=await unzip(await file.arrayBuffer()), P=new DOMParser();
+  const ss=z['xl/sharedStrings.xml']?[...P.parseFromString(await z['xl/sharedStrings.xml'](),'application/xml').getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join('')):[];
+  const sheetName=Object.keys(z).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort((a,b)=>parseInt(a.match(/\d+/))-parseInt(b.match(/\d+/)))[0];
+  if(!sheetName) throw new Error('no worksheet');
+  const doc=P.parseFromString(await z[sheetName](),'application/xml'), rows=[];
+  const colN=ref=>{ const L=ref.replace(/\d+/g,''); let n=0; for(const ch of L) n=n*26+ch.charCodeAt(0)-64; return n-1; };
+  for(const r of doc.getElementsByTagName('row')){
+    const cells=[];
+    for(const c of r.getElementsByTagName('c')){
+      const t=c.getAttribute('t'), v=c.getElementsByTagName('v')[0], is=c.getElementsByTagName('is')[0];
+      let val=t==='s'&&v?ss[+v.textContent]||'':t==='inlineStr'&&is?is.textContent:v?v.textContent:'';
+      if(!t||t==='n'){ const x=parseFloat(val); if(!isNaN(x)&&x>0&&x<1&&!/^-?\d+$/.test(val)){ const m=Math.round(x*1440); val=pad(Math.floor(m/60)%24)+':'+pad(m%60); } else if(!isNaN(x)&&x>=20000&&x<80000&&Math.abs(x-Math.round(x))>1e-6){ val=String(Math.floor(x)); } }
+      cells[colN(c.getAttribute('r')||'A1')]=String(val).replace(/[\t\r\n]+/g,' ');
+    }
+    rows.push(Array.from(cells,x=>x==null?'':x).join('\t'));
+  }
+  return rows.join('\n');
+}
+function csvToTsv(t){ if(t.includes('\t')) return t; const out=[]; for(const line of t.split(/\r?\n/)){ const cells=[]; let cur='',q=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(q){ if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;} else if(ch==='"') q=false; else cur+=ch; } else if(ch==='"') q=true; else if(ch===','){ cells.push(cur); cur=''; } else cur+=ch; } cells.push(cur); out.push(cells.join('\t')); } return out.join('\n'); }
+function loadItineraryText(t){ $('xlText').value=t; runExcelPaste(true); $('xlBox').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+async function handleFiles(files,droppedText){
+  const list=[...(files||[])];
+  // voyage plan first, then the itinerary, so the itinerary can borrow the voyage plan's UTC
+  list.sort((a,b)=>(/\.pdf$/i.test(b.name)?1:0)-(/\.pdf$/i.test(a.name)?1:0));
+  for(const f of list){
+    try{
+      if(/\.pdf$/i.test(f.name)||f.type==='application/pdf') await handleFile(f);
+      else if(/\.xlsx$/i.test(f.name)) loadItineraryText(await xlsxToTsv(f));
+      else if(/\.xls$/i.test(f.name)) setMsg('xlMsg','bad','Old .xls files can’t be read here. In Excel use <b>File → Save As → .xlsx</b>, or copy the rows and paste them below.');
+      else if(/\.(csv|tsv)$/i.test(f.name)) loadItineraryText(csvToTsv(await f.text()));
+      else if(/\.txt$/i.test(f.name)){ const t=await f.text(); if(/\t/.test(t)&&/date/i.test(t.split('\n')[0])) loadItineraryText(t); else await handleFile(f); }
+      else setMsg('voyMsg','warn','Not sure what '+esc(f.name)+' is — drop a voyage plan PDF or an itinerary .xlsx / .csv.');
+    }catch(err){ console.error(err); setMsg('xlMsg','bad','Couldn’t read '+esc(f.name)+' — copy the rows in Excel and paste them below instead. <span class="muted">('+esc(err.message||err)+')</span>'); }
+  }
+  if(!list.length&&droppedText&&droppedText.trim()){
+    if(/\t/.test(droppedText)) loadItineraryText(droppedText); else { $('voyText').value=droppedText; $('voyParse').click(); }
+  }
+}
 async function handleFile(file){
   if(!file) return;
   if(/\.txt$/i.test(file.name)){ $('voyText').value=await file.text(); $('voyParse').click(); return; }
@@ -1128,16 +1240,16 @@ $('drop').onclick=()=>$('pdfFile').click();
 $('clearVoy').onclick=()=>{ $('clearConfirm').hidden=!voy.length?true:false; if(!voy.length) toast('Nothing to clear'); };
 $('clearNo').onclick=()=>{ $('clearConfirm').hidden=true; };
 $('clearYes').onclick=()=>{ xlClean=[]; store.set('xlClean',[]); $('xlText').value=''; renderClean(); setMsg('xlMsg','','');
-  voy=[]; voyName=''; save();
+  voy=[]; voyName=''; srcVoy=null; srcItin=null; store.set('srcVoy',null); store.set('srcItin',null); save(); renderSources();
   $('pdfFile').value=''; $('voyText').value='';
   $('clearConfirm').hidden=true;
-  setMsg('voyMsg','ok','Voyage plan cleared. Choose the new voyage plan PDF.');
+  setMsg('voyMsg','ok','Voyage plan and itinerary cleared. Load the new ones.');
   renderAll();
 };
-$('pdfFile').onchange=e=>handleFile(e.target.files[0]);
+$('pdfFile').onchange=e=>handleFiles(e.target.files);
 ['dragover','dragenter'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.add('over');}));
 ['dragleave','drop'].forEach(t=>$('drop').addEventListener(t,e=>{e.preventDefault();$('drop').classList.remove('over');}));
-$('drop').addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
+$('drop').addEventListener('drop',e=>handleFiles(e.dataTransfer.files,e.dataTransfer.getData('text/plain')));
 
 /* ---- now panel ---- */
 function renderNow(){
@@ -1477,6 +1589,7 @@ async function loadSiteData(){
 }
 function applySite(d,clicked){
   voy=d.days.map(e=>({date:e.date,port:e.port||'',arr:e.arr||'',dep:e.dep||'',off:e.off==null?NaN:+e.off,ships:e.ships||''})); voyName=d.name||'';
+  srcVoy={name:voyName,days:voy.map(e=>({...e,off:isNaN(e.off)?null:e.off}))}; srcItin=null; store.set('srcVoy',srcVoy); store.set('srcItin',null); renderSources();
   if(d.trackerUrl){ store.set('trackUrl',d.trackerUrl); }
   if(d.year) $('year').value=d.year; if(d.changeTime) $('chg').value=d.changeTime; if(d.ship) $('rShip').value=d.ship;
   store.set('voy',voy); store.set('voyName',voyName); store.set('chg',chg()); store.set('localStamp',d.updated||0);
@@ -1892,7 +2005,7 @@ setInterval(checkDualNotify,5*60e3);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ renderDualBanner(); checkDualNotify(); } });
 
 function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderDual(); renderDualBanner(); renderNotifyState(); checkDualNotify(); renderHeaderInfo(); }
-renderAll();
+renderSources(); renderAll();
 loadSiteData();
 setInterval(renderNow,20000);
 })();

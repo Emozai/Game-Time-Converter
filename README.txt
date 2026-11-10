@@ -28,7 +28,10 @@ UPDATE FOR A NEW VOYAGE OR NEW GAME WEEK
   1. Open the website.
   2. Step 1: load the new voyage plan PDF and check the UTC column.
   3. Step 3: paste the new game schedule.
-  The voyage plan and schedule are saved on that device.
+  You can load both the voyage plan PDF and the itinerary (paste, drag the
+  Excel selection, or drop the .xlsx / .csv file). They are combined by date:
+  the voyage plan gives the UTC offsets, the itinerary gives ports, times and
+  time changes. The voyage plan and schedule are saved on that device.
 
 NOTES
   - Ship time comes from the voyage plan, not from each person's phone,
