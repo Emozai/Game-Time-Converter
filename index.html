@@ -362,7 +362,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <div><label for="chg">Clocks change at (ship time)</label><input id="chg" type="time" value="02:00"></div>
       </div>
       <div class="voy"><table>
-        <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th title="Other NCL ships in the same port that day">NCL in port (dual call)</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Port</th><th>Arr</th><th>Dep</th><th>Ship UTC</th><th></th></tr></thead>
         <tbody id="voyBody"></tbody>
       </table></div>
       <div class="btns" style="margin-top:10px">
@@ -814,9 +814,8 @@ function renderVoy(){
       <td><input class="tm" data-i="${i}" data-k="arr" value="${esc(e.arr||'')}" placeholder="--:--" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td><input class="tm" data-i="${i}" data-k="dep" value="${esc(e.dep||'')}" placeholder="--:--" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td class="off"><input data-i="${i}" data-k="off" value="${isNaN(e.off)?'':fmtOffset(e.off).replace('−','-')}" style="${isNaN(e.off)?'border-color:var(--bad)':''}"></td>
-      <td><input class="ships" list="nclFleet" data-i="${i}" data-k="ships" value="${esc(e.ships||'')}" placeholder="${/at sea/i.test(e.port||'')?'':'e.g. Norwegian Getaway 08:00-17:00'}" ${/at sea/i.test(e.port||'')?'disabled':''}></td>
       <td>${badge}${tb} <button class="small" data-del="${i}" title="Remove">✕</button></td></tr>`;
-  }).join('')||'<tr><td colspan="7" class="muted">No voyage days yet — load a PDF.</td></tr>';
+  }).join('')||'<tr><td colspan="6" class="muted">No voyage days yet — load a PDF.</td></tr>';
 }
 $('voyBody').addEventListener('change',ev=>{
   const t=ev.target; if(!t.dataset.k) return; const e=voy[+t.dataset.i];
