@@ -48,6 +48,39 @@
   @media (max-width:600px){ .mark{width:48px;height:48px;border-radius:12px} .mark svg{width:34px;height:34px} .chips{gap:6px} .chip{font-size:12px;padding:4px 9px} }
   *{box-sizing:border-box}
   [hidden]{display:none!important}
+  .poster-dlg{width:min(560px,calc(100vw - 20px));max-height:calc(100vh - 30px);padding:0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);display:none;flex-direction:column}
+  .poster-dlg[open]{display:flex}
+  .poster-dlg::backdrop{background:rgba(5,12,24,.6)}
+  .poster-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .poster-bar h3{margin:0;font-size:17px}
+  .poster-view{overflow:auto;padding:14px;background:var(--bg);flex:1 1 auto}
+  .poster-view img{display:block;width:100%;height:auto;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+  .poster-acts{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px}
+  #printPoster{display:none}
+  @media print{
+    body.printing > *:not(#printPoster){display:none!important}
+    body.printing{background:#fff!important}
+    body.printing #printPoster{display:block;color:#0f1b2d;font:14px/1.4 Inter,system-ui,sans-serif}
+    @page{margin:12mm}
+    #printPoster .pp-head{background:#0b2545;color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:18px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printPoster .pp-pill{display:inline-block;background:#F5C542;color:#0b2545;font-weight:800;font-size:11px;letter-spacing:.08em;border-radius:99px;padding:4px 12px}
+    #printPoster h1{margin:10px 0 4px;font-size:28px;line-height:1.15}
+    #printPoster .pp-sub{color:#a9c1e0;font-size:14px}
+    #printPoster .pp-day{break-inside:avoid-page;margin-bottom:14px}
+    #printPoster h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#9a6b00;border-bottom:2px solid #F5C542;padding-bottom:4px;margin:0 0 6px}
+    #printPoster table{width:100%;border-collapse:collapse}
+    #printPoster tr{break-inside:avoid;border-bottom:1px solid #e3e8ef}
+    #printPoster td{padding:8px 6px;vertical-align:middle}
+    #printPoster .pp-t{width:120px;font-size:22px;font-weight:800;white-space:nowrap}
+    #printPoster .pp-t small{font-size:11px;color:#9a6b00}
+    #printPoster .pp-end{font-size:11px;font-weight:500;color:#5b6b80}
+    #printPoster .pp-m b{font-size:16px} #printPoster .pp-m div{color:#5b6b80}
+    #printPoster .pp-chg{color:#b45309!important;font-size:11px}
+    #printPoster .pp-n{text-align:right;white-space:nowrap}
+    #printPoster .pp-n span{display:inline-block;border:1px solid #d9b44a;color:#7a5600;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:700}
+    #printPoster .pp-past{opacity:.5}
+    #printPoster .pp-foot{display:flex;justify-content:space-between;margin-top:16px;padding-top:8px;border-top:1px solid #dde3ea;font-size:11px;color:#5b6b80}
+  }
   body{margin:0;background:var(--pattern) 0 0/240px 240px repeat, var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
   @media print{body{background:#fff}}
   header{background:var(--navy);color:#fff;padding:calc(22px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 18px calc(20px + env(safe-area-inset-left))}
@@ -438,7 +471,9 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <div class="muted" style="font-size:13.5px;margin-top:2px" id="resOffset"></div>
       </div>
       <div class="btns" style="flex:0 0 auto">
-        <button class="small primary" id="dlCsv">⬇ Export CSV</button>
+        <button class="small primary" id="saveImg">🖼 Save as image</button>
+        <button class="small" id="printPdf">🖨 Print / PDF</button>
+        <button class="small" id="dlCsv">⬇ Export CSV</button>
         <button class="small" id="copyTable">Copy for spreadsheet</button>
         <button class="small" id="copyList">Copy crew notice</button>
       </div>
@@ -448,6 +483,12 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
   </section>
 </main>
 <footer class="credit">Made by JVL - Broadcast · <button type="button" class="credit-link" id="jvlContactOpen">Contact me</button></footer>
+<dialog id="posterDlg" class="poster-dlg" aria-labelledby="posterTitle">
+  <div class="poster-bar"><h3 id="posterTitle">Game times — ready to share</h3><button type="button" class="small" id="posterClose" aria-label="Close">✕</button></div>
+  <div class="poster-view"><img id="posterImg" alt="Game times in ship time"></div>
+  <div class="poster-acts"><button type="button" class="primary" id="posterSave">⬇ Save image</button><button type="button" id="posterShare" hidden>📤 Share</button><button type="button" id="posterPrint">🖨 Print / PDF</button></div>
+  <div class="hint" style="padding:0 16px 14px">On iPhone you can also press and hold the picture and choose “Save to Photos”.</div>
+</dialog>
 <dialog id="jvlContact" class="jvl-contact" aria-labelledby="jvlContactTitle">
   <form id="jvlContactForm" novalidate>
     <div class="jvl-head"><h3 id="jvlContactTitle">Contact me</h3><button type="button" class="jvl-x" id="jvlContactClose" aria-label="Close">✕</button></div>
@@ -1929,6 +1970,150 @@ $('copyList').onclick=()=>{
     out.push(`${(fmtTime(x.s.h,x.s.mi,h24)+endTxt).padStart(x.e?13:8)}  ${desc}`); }
   copyText(out.join('\n'),'Crew notice');
 };
+
+/* ---- Beautiful exports: poster image (PNG) and printable poster (PDF) ---- */
+function noticeData(){
+  const R=buildReport(); if(!R) return null;
+  const {names}=lastResults; const h24=$('h24').checked;
+  const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=names.findIndex(n=>/network|broadcast|channel|\btv\b/i.test(n||''));
+  const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=names.findIndex(n=>/channel|network|station/i.test(n||''));
+  const days=[]; let cur=null;
+  for(const x of R.rows){ if(x.tbd) continue;
+    const key=ymd(x.s.y,x.s.mo,x.s.d);
+    if(!cur||cur.key!==key){ cur={key,label:`${WDL[x.s.wd]} ${x.s.d} ${MON(x.s.mo)}`,items:[]}; days.push(cur); }
+    const ex=x.r.extras.map(e=>e.val||'');
+    let line1,line2='',net='';
+    if(ai>=0&&hi>=0){ line1=ex[ai]; line2='at '+ex[hi]; net=ni>=0?ex[ni]:''; }
+    else if(ev>=0){ line1=ex[ev]; net=ch>=0?ex[ch]:''; }
+    else line1=ex.filter(v=>v&&!/^\d{1,2}$/.test(v)).join(' · ');
+    const t=fmtTime(x.s.h,x.s.mi,h24), e=x.e?fmtTime(x.e.s.h,x.e.s.mi,h24):'';
+    cur.items.push({time:t,end:e,line1:line1||'Event',line2,net,past:!!x.past,live:!!x.live,chg:!!(x.alt||(x.e&&x.e.alt))});
+  }
+  const m=R.title.match(/^(.*?)\s*\((.*)\)\s*$/);
+  const head=(m?m[1]:R.title).replace(/\s+—\s+/,' · ');
+  const sub=m?m[2]:'';
+  const n=days.reduce((a,d)=>a+d.items.length,0);
+  return {title:head,sub,days,count:n,chg:chg(),made:new Date()};
+}
+
+const PF='Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
+function posterCanvas(N){
+  const W=1080, PADX=64, CARD_H=124, CARD_H2=150, GAP=14;
+  const c=document.createElement('canvas'), g=c.getContext('2d');
+  const font=(w,s)=>`${w} ${s}px ${PF}`;
+  const wrap=(txt,maxW,f)=>{ g.font=f; const words=String(txt).split(/\s+/); const lines=[]; let l='';
+    for(const w of words){ const t=l?l+' '+w:w; if(g.measureText(t).width>maxW&&l){ lines.push(l); l=w; } else l=t; } if(l) lines.push(l); return lines; };
+  const fit=(txt,maxW,f)=>{ g.font=f; if(g.measureText(txt).width<=maxW) return txt; let s=txt; while(s.length>1&&g.measureText(s+'…').width>maxW) s=s.slice(0,-1); return s+'…'; };
+  // layout pass
+  const titleLines=wrap(N.title,W-PADX*2,font(800,60));
+  let y=80+46+28+titleLines.length*70+(N.sub?44:0)+64;
+  const blocks=[];
+  N.days.forEach(d=>{ blocks.push({t:'day',d,y}); y+=70;
+    d.items.forEach(it=>{ const h=it.line2?CARD_H2:CARD_H; blocks.push({t:'item',it,y,h}); y+=h+GAP; }); y+=18; });
+  if(!N.days.length){ blocks.push({t:'none',y}); y+=120; }
+  const H=y+130;
+  const scale=Math.max(.6,Math.min(2,Math.sqrt(16e6/(W*H))));
+  c.width=Math.round(W*scale); c.height=Math.round(H*scale); g.scale(scale,scale);
+  // background
+  const bg=g.createLinearGradient(0,0,0,H); bg.addColorStop(0,'#0b2545'); bg.addColorStop(1,'#0f3460'); g.fillStyle=bg; g.fillRect(0,0,W,H);
+  g.strokeStyle='rgba(255,255,255,.045)'; g.lineWidth=1;
+  for(let x=60;x<W;x+=60){ g.beginPath(); g.moveTo(x+.5,0); g.lineTo(x+.5,H); g.stroke(); }
+  for(let yy=60;yy<H;yy+=60){ g.beginPath(); g.moveTo(0,yy+.5); g.lineTo(W,yy+.5); g.stroke(); }
+  const glow=g.createRadialGradient(W*.85,0,0,W*.85,0,560); glow.addColorStop(0,'rgba(245,197,66,.16)'); glow.addColorStop(1,'rgba(245,197,66,0)'); g.fillStyle=glow; g.fillRect(0,0,W,600);
+  const rr=(x,y,w,h,r)=>{ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); };
+  // header pill
+  g.font=font(800,22); const pill='SHIP TIME', pw=g.measureText(pill).width+40;
+  rr(PADX,80,pw,46,23); g.fillStyle='#F5C542'; g.fill(); g.fillStyle='#0b2545'; g.textBaseline='middle'; g.fillText(pill,PADX+20,103);
+  g.font=font(600,22); g.fillStyle='rgba(255,255,255,.7)'; g.fillText(`${N.count} ${N.count===1?'game':'games'}`,PADX+pw+18,103);
+  // title
+  g.textBaseline='alphabetic'; g.fillStyle='#fff'; g.font=font(800,60);
+  let ty=80+46+28+56; titleLines.forEach(l=>{ g.fillText(l,PADX,ty); ty+=70; });
+  if(N.sub){ g.font=font(500,28); g.fillStyle='#a9c1e0'; g.fillText(fit(N.sub,W-PADX*2,font(500,28)),PADX,ty-14+30); }
+  // blocks
+  const TW=250;
+  blocks.forEach(b=>{
+    if(b.t==='day'){
+      g.font=font(800,26); g.fillStyle='#F5C542'; const lbl=b.d.label.toUpperCase(); g.fillText(lbl,PADX,b.y+40);
+      const lw=g.measureText(lbl).width; g.strokeStyle='rgba(245,197,66,.35)'; g.lineWidth=2; g.beginPath(); g.moveTo(PADX+lw+20,b.y+31); g.lineTo(W-PADX,b.y+31); g.stroke();
+    } else if(b.t==='item'){
+      const it=b.it, x=PADX, w=W-PADX*2;
+      g.save(); if(it.past) g.globalAlpha=.45;
+      rr(x,b.y,w,b.h,22); g.fillStyle='rgba(255,255,255,.075)'; g.fill(); g.strokeStyle='rgba(255,255,255,.10)'; g.lineWidth=1.5; g.stroke();
+      rr(x,b.y,8,b.h,4); g.fillStyle=it.live?'#ff6b5e':'#F5C542'; g.fill();
+      // time
+      const mid=b.y+b.h/2; const tm=it.time.match(/^(\d{1,2}:\d{2})\s*(AM|PM)?$/);
+      g.fillStyle='#fff'; g.font=font(800,46); g.textBaseline='middle';
+      const big=tm?tm[1]:it.time; g.fillText(big,x+34,mid-(it.end?12:0));
+      if(tm&&tm[2]){ const bw=g.measureText(big).width; g.font=font(800,22); g.fillStyle='#F5C542'; g.fillText(tm[2],x+34+bw+8,mid-(it.end?12:0)+4); }
+      if(it.end){ g.font=font(600,20); g.fillStyle='rgba(255,255,255,.65)'; g.fillText('until '+it.end,x+34,mid+26); }
+      // divider
+      g.strokeStyle='rgba(255,255,255,.12)'; g.lineWidth=2; g.beginPath(); g.moveTo(x+TW,b.y+24); g.lineTo(x+TW,b.y+b.h-24); g.stroke();
+      // chips on the right
+      let chipX=x+w-28; const chip=(txt,bgc,fg)=>{ g.font=font(700,19); const cw=g.measureText(txt).width+28; chipX-=cw; rr(chipX,mid-19,cw,38,19); g.fillStyle=bgc; g.fill(); g.fillStyle=fg; g.fillText(txt,chipX+14,mid+1); chipX-=10; };
+      if(it.live) chip('LIVE NOW','#ff6b5e','#fff');
+      else if(it.past) chip('PLAYED','rgba(255,255,255,.18)','#fff');
+      if(it.net) chip(it.net.length>16?it.net.slice(0,15)+'…':it.net,'rgba(245,197,66,.16)','#F5C542');
+      const tx=x+TW+30, tw=chipX-tx-10;
+      if(it.line2){ g.font=font(800,32); g.fillStyle='#fff'; g.fillText(fit(it.line1,tw,font(800,32)),tx,mid-20);
+        g.font=font(500,26); g.fillStyle='#c9d8ec'; g.fillText(fit(it.line2,tw,font(500,26)),tx,mid+22); }
+      else { g.font=font(700,30); g.fillStyle='#fff'; g.fillText(fit(it.line1,tw,font(700,30)),tx,mid); }
+      if(it.chg){ g.font=font(700,16); g.fillStyle='#ffb84d'; g.textBaseline='alphabetic'; g.fillText('⚠ near a clock change',tx,b.y+b.h-12); }
+      g.restore(); g.textBaseline='alphabetic';
+    } else { g.font=font(600,30); g.fillStyle='#c9d8ec'; g.fillText('No upcoming games.',PADX,b.y+60); }
+  });
+  // footer
+  const fy=H-70; g.strokeStyle='rgba(255,255,255,.15)'; g.lineWidth=1.5; g.beginPath(); g.moveTo(PADX,fy-34); g.lineTo(W-PADX,fy-34); g.stroke();
+  g.font=font(500,21); g.fillStyle='rgba(255,255,255,.65)'; g.textBaseline='middle';
+  g.fillText('All times are ship time · clocks change at '+N.chg+' ship time',PADX,fy);
+  g.font=font(800,21); g.fillStyle='#F5C542'; const cr='Made by JVL - Broadcast'; g.fillText(cr,W-PADX-g.measureText(cr).width,fy);
+  return c;
+}
+
+function posterName(N,ext){ return (N.title.replace(/[—–·]/g,'-').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'_').replace(/_-_/g,'-')||'game_times')+'_ship_time.'+ext; }
+let posterBlob=null, posterUrl=null, posterN=null;
+async function openPoster(){
+  const N=noticeData(); if(!N) return;
+  try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+  const c=posterCanvas(N); posterN=N;
+  posterBlob=await new Promise(r=>c.toBlob(r,'image/png'));
+  if(posterUrl) URL.revokeObjectURL(posterUrl); posterUrl=URL.createObjectURL(posterBlob);
+  $('posterImg').src=posterUrl;
+  const canShare=!!(navigator.canShare&&navigator.share&&navigator.canShare({files:[new File([posterBlob],'x.png',{type:'image/png'})]}));
+  $('posterShare').hidden=!canShare;
+  const d=$('posterDlg'); if(d.showModal) d.showModal(); else d.setAttribute('open','');
+}
+async function savePoster(){
+  if(!posterBlob) return; const name=posterName(posterN,'png');
+  try{ const a=document.createElement('a'); a.href=posterUrl; a.download=name; document.body.appendChild(a); a.click(); a.remove(); toast(name+' downloaded'); }catch(e){ toast('Press and hold the picture to save it'); }
+}
+async function sharePoster(){
+  if(!posterBlob) return;
+  try{ await navigator.share({files:[new File([posterBlob],posterName(posterN,'png'),{type:'image/png'})],title:posterN.title}); }catch(e){}
+}
+
+// printable poster (Print → Save as PDF)
+function printPoster(){
+  const N=noticeData(); if(!N) return;
+  const e=s=>esc(String(s??''));
+  const html=`<div class="pp-head"><div class="pp-pill">SHIP TIME</div><h1>${e(N.title)}</h1>${N.sub?`<div class="pp-sub">${e(N.sub)}</div>`:''}</div>`+
+    (N.days.length?N.days.map(d=>`<section class="pp-day"><h2>${e(d.label)}</h2><table>${d.items.map(it=>{
+      const tm=it.time.match(/^(\d{1,2}:\d{2})\s*(AM|PM)?$/);
+      return `<tr class="${it.past?'pp-past':''}"><td class="pp-t">${tm?e(tm[1])+(tm[2]?` <small>${tm[2]}</small>`:''):e(it.time)}${it.end?`<div class="pp-end">until ${e(it.end)}</div>`:''}</td>`+
+        `<td class="pp-m"><b>${e(it.line1)}</b>${it.line2?`<div>${e(it.line2)}</div>`:''}${it.chg?'<div class="pp-chg">⚠ near a clock change</div>':''}</td>`+
+        `<td class="pp-n">${it.net?`<span>${e(it.net)}</span>`:''}${it.past?' <i>played</i>':''}</td></tr>`; }).join('')}</table></section>`).join('')
+      :'<p>No upcoming games.</p>')+
+    `<div class="pp-foot"><span>All times are ship time · clocks change at ${e(N.chg)} ship time</span><b>Made by JVL - Broadcast</b></div>`;
+  let el=$('printPoster'); if(!el){ el=document.createElement('div'); el.id='printPoster'; document.body.appendChild(el); }
+  el.innerHTML=html; document.body.classList.add('printing');
+  const done=()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done); setTimeout(()=>window.print(),50); setTimeout(done,60000);
+}
+$('saveImg').onclick=openPoster;
+$('printPdf').onclick=printPoster;
+$('posterSave').onclick=savePoster;
+$('posterShare').onclick=sharePoster;
+$('posterPrint').onclick=()=>{ $('posterDlg').close&&$('posterDlg').close(); printPoster(); };
+$('posterClose').onclick=()=>{ const d=$('posterDlg'); if(d.close) d.close(); else d.removeAttribute('open'); };
 
 /* ---- light / dark switch ---- */
 const darkMQ=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
