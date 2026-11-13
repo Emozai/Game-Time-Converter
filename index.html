@@ -23,16 +23,17 @@
     --navy:#0b2545; --accent:#1368ce; --accent-soft:#e6f0fc; --warn:#9a5b00; --warn-soft:#fff4e0;
     --ok:#17794a; --ok-soft:#e5f5ec; --bad:#b42318; --bad-soft:#fdecea;
     --sea:#d9e9f8; --land:#f4f0e6; --coast:#c3bba6;
+    --pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%230b2545'%3E%3Cpath stroke-opacity='0.05' stroke-width='1' d='M60 0V240M120 0V240M180 0V240M0 60H240M0 120H240M0 180H240'/%3E%3Cpath stroke-opacity='0.08' stroke-width='1.2' d='M0 .5H240M.5 0V240'/%3E%3Cpath stroke-opacity='0.09' stroke-width='1.4' stroke-linecap='round' d='M18 92q8-7 16 0t16 0 16 0M150 34q8-7 16 0t16 0M138 206q8-7 16 0t16 0 16 0M70 154q8-7 16 0t16 0'/%3E%3Cpath stroke-opacity='0.08' stroke-width='1.2' d='M120 112v16M112 120h16'/%3E%3C/g%3E%3C/svg%3E");
     --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
   }
   /* dark: chosen with the switch, or following the device when no choice was made */
   :root[data-theme="dark"]{ --bg:#0b1220; --card:#121b2c; --ink:#e7edf5; --muted:#93a3b8; --line:#24324a;
       --navy:#0a1a33; --accent:#5aa2ff; --accent-soft:#16294a; --warn:#ffc266; --warn-soft:#332611;
-      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; --sea:#0e1f3b; --land:#22314a; --coast:#3a4d69; color-scheme:dark; }
+      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; --sea:#0e1f3b; --land:#22314a; --coast:#3a4d69; --pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%239cc4ff'%3E%3Cpath stroke-opacity='0.045' stroke-width='1' d='M60 0V240M120 0V240M180 0V240M0 60H240M0 120H240M0 180H240'/%3E%3Cpath stroke-opacity='0.07' stroke-width='1.2' d='M0 .5H240M.5 0V240'/%3E%3Cpath stroke-opacity='0.08' stroke-width='1.4' stroke-linecap='round' d='M18 92q8-7 16 0t16 0 16 0M150 34q8-7 16 0t16 0M138 206q8-7 16 0t16 0 16 0M70 154q8-7 16 0t16 0'/%3E%3Cpath stroke-opacity='0.07' stroke-width='1.2' d='M120 112v16M112 120h16'/%3E%3C/g%3E%3C/svg%3E"); color-scheme:dark; }
   @media (prefers-color-scheme:dark){
     :root:not([data-theme="light"]){ --bg:#0b1220; --card:#121b2c; --ink:#e7edf5; --muted:#93a3b8; --line:#24324a;
       --navy:#0a1a33; --accent:#5aa2ff; --accent-soft:#16294a; --warn:#ffc266; --warn-soft:#332611;
-      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; --sea:#0e1f3b; --land:#22314a; --coast:#3a4d69; color-scheme:dark; }
+      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; --sea:#0e1f3b; --land:#22314a; --coast:#3a4d69; --pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%239cc4ff'%3E%3Cpath stroke-opacity='0.045' stroke-width='1' d='M60 0V240M120 0V240M180 0V240M0 60H240M0 120H240M0 180H240'/%3E%3Cpath stroke-opacity='0.07' stroke-width='1.2' d='M0 .5H240M.5 0V240'/%3E%3Cpath stroke-opacity='0.08' stroke-width='1.4' stroke-linecap='round' d='M18 92q8-7 16 0t16 0 16 0M150 34q8-7 16 0t16 0M138 206q8-7 16 0t16 0 16 0M70 154q8-7 16 0t16 0'/%3E%3Cpath stroke-opacity='0.07' stroke-width='1.2' d='M120 112v16M112 120h16'/%3E%3C/g%3E%3C/svg%3E"); color-scheme:dark; }
   }
   :root[data-theme="light"]{ color-scheme:light; }
   /* theme switch */
@@ -46,7 +47,9 @@
   .hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
   @media (max-width:600px){ .mark{width:48px;height:48px;border-radius:12px} .mark svg{width:34px;height:34px} .chips{gap:6px} .chip{font-size:12px;padding:4px 9px} }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--pattern) 0 0/240px 240px repeat, var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+  @media print{body{background:#fff}}
   header{background:var(--navy);color:#fff;padding:calc(22px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 18px calc(20px + env(safe-area-inset-left))}
   main{padding-left:calc(20px + env(safe-area-inset-left))!important;padding-right:calc(20px + env(safe-area-inset-right))!important;padding-bottom:calc(60px + env(safe-area-inset-bottom))!important}
   .hdr-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
