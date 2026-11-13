@@ -1,6 +1,6 @@
 /* Game Time Converter — offline support.
    Bump VERSION whenever index.html changes so phones pick up the update. */
-const VERSION = 'gtc-v32';
+const VERSION = 'gtc-v33';
 const CORE = [
   './',
   './index.html',
@@ -9,7 +9,8 @@ const CORE = [
   './icons/icon-512.png',
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
-  './icons/favicon-32.png'
+  './icons/favicon-32.png',
+  './lib/land.json'
 ];
 
 self.addEventListener('install', event => {

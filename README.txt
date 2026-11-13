@@ -7,7 +7,8 @@ WHAT'S IN THIS FOLDER
   _worker.js        Live ship position for "Where's the ship?" (reads CruiseMapper.com).
                     Keep it in the folder: Cloudflare Pages runs it
                     automatically when you drag and drop the folder or zip.
-  lib/              PDF reader, so voyage-plan PDFs load with no internet
+  lib/              PDF reader, so voyage-plan PDFs load with no internet,
+                    and land.json: world map (Natural Earth, public domain)
   README.txt        This file
 
 PUT IT ONLINE (pick one)

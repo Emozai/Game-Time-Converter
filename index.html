@@ -22,16 +22,17 @@
     --bg:#f4f6f9; --card:#fff; --ink:#0f1b2d; --muted:#5b6b80; --line:#dde3ea;
     --navy:#0b2545; --accent:#1368ce; --accent-soft:#e6f0fc; --warn:#9a5b00; --warn-soft:#fff4e0;
     --ok:#17794a; --ok-soft:#e5f5ec; --bad:#b42318; --bad-soft:#fdecea;
+    --sea:#d9e9f8; --land:#f4f0e6; --coast:#c3bba6;
     --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
   }
   /* dark: chosen with the switch, or following the device when no choice was made */
   :root[data-theme="dark"]{ --bg:#0b1220; --card:#121b2c; --ink:#e7edf5; --muted:#93a3b8; --line:#24324a;
       --navy:#0a1a33; --accent:#5aa2ff; --accent-soft:#16294a; --warn:#ffc266; --warn-soft:#332611;
-      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; color-scheme:dark; }
+      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; --sea:#0e1f3b; --land:#22314a; --coast:#3a4d69; color-scheme:dark; }
   @media (prefers-color-scheme:dark){
     :root:not([data-theme="light"]){ --bg:#0b1220; --card:#121b2c; --ink:#e7edf5; --muted:#93a3b8; --line:#24324a;
       --navy:#0a1a33; --accent:#5aa2ff; --accent-soft:#16294a; --warn:#ffc266; --warn-soft:#332611;
-      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; color-scheme:dark; }
+      --ok:#5fd39a; --ok-soft:#10301f; --bad:#ff8a80; --bad-soft:#3a1714; --sea:#0e1f3b; --land:#22314a; --coast:#3a4d69; color-scheme:dark; }
   }
   :root[data-theme="light"]{ color-scheme:light; }
   /* theme switch */
@@ -239,7 +240,9 @@
   .prog .bar{height:100%;background:var(--accent);border-radius:999px;width:0}
   .progl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
   .progl span:nth-child(2){font-weight:700;color:var(--ink)}
-  .posmap{height:300px;border-radius:12px;margin:14px 0 8px;background:var(--accent-soft);overflow:hidden}
+  .posmap{height:340px;border-radius:12px;margin:14px 0 8px;background:var(--sea);overflow:hidden;border:1px solid var(--line)}
+  .posmap text{paint-order:stroke;stroke:var(--sea);stroke-width:3px;stroke-linejoin:round}
+  @media (max-width:600px){.posmap{height:260px}}
   .posmap.off{display:none}
   .livebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px;padding:10px 14px;border-radius:12px;background:var(--accent-soft);font-size:14px}
   .livebox .ld{width:10px;height:10px;border-radius:50%;background:#1DB954;box-shadow:0 0 0 0 rgba(29,185,84,.6);animation:lpulse 2s infinite}
@@ -2177,18 +2180,37 @@ function renderPosition(){
     posMap.invalidateSize(); posMap.fitBounds(L.latLngBounds(focus.filter(Boolean)).pad(0.15));
   }).catch(()=>drawRouteSvg(pts,pos,P,now));
 }
+// World coastlines built into the site (lib/land.json, Natural Earth, public domain) — no outside map downloads.
+var LAND=null, landBusy=false;
+function loadLand(){
+  if(LAND||landBusy) return; landBusy=true;
+  fetch('./lib/land.json').then(r=>r.json()).then(d=>{
+    const q=d.q; LAND=d.p.map(f=>{ const pts=[]; let x=f[0],y=f[1]; pts.push([x*q,y*q]); let a0=y,a1=y,o0=x,o1=x;
+      for(let i=2;i<f.length;i+=2){ x+=f[i]; y+=f[i+1]; pts.push([x*q,y*q]); if(y<a0)a0=y; if(y>a1)a1=y; if(x<o0)o0=x; if(x>o1)o1=x; }
+      return {pts,b:[a0*q,a1*q,o0*q,o1*q]}; });
+    renderPosition();
+  }).catch(()=>{}).finally(()=>{ landBusy=false; });
+}
 function drawRouteSvg(pts,pos,P,now){
-  const el=$('posMap'); el.classList.remove('off');
-  const all=pts.map(c=>c.ll).concat(pos?[pos]:[]);
+  const el=$('posMap'); el.classList.remove('off'); if(!LAND) loadLand();
+  // frame the part of the voyage that matters now: the last port, where the ship is, and the next few ports
+  const cur=P.state==='sea'?P.from:P.at; let ci=pts.indexOf(cur); if(ci<0) ci=0;
+  const all=pts.slice(ci,ci+6).map(c=>c.ll).concat(pos?[pos]:[]);
   const lats=all.map(p=>p[0]), lons=all.map(p=>p[1]);
   let a0=Math.min(...lats),a1=Math.max(...lats),o0=Math.min(...lons),o1=Math.max(...lons);
   const padA=Math.max(2,(a1-a0)*.12), padO=Math.max(2,(o1-o0)*.08); a0-=padA;a1+=padA;o0-=padO;o1+=padO;
-  const W=1000,H=300, k=Math.cos(((a0+a1)/2)*D2R);
+  const W=Math.max(280,el.clientWidth||1000), H=Math.max(200,el.clientHeight||340), k=Math.cos(((a0+a1)/2)*D2R);
+  // widen the view to fill the box so the map has no empty bands
+  { const spanO=(o1-o0)*k, spanA=a1-a0, want=W/H; if(spanO/spanA<want){ const add=(spanA*want/k-(o1-o0))/2; o0-=add; o1+=add; } else { const add=(spanO/want-spanA)/2; a0-=add; a1+=add; } }
   const sx=W/((o1-o0)*k), sy=H/(a1-a0), sc=Math.min(sx,sy);
   const ox=(W-(o1-o0)*k*sc)/2, oy=(H-(a1-a0)*sc)/2;
   const X=lo=>ox+(lo-o0)*k*sc, Y=la=>oy+(a1-la)*sc;
   const path=(a,b)=>{ let d=''; for(let j=0;j<=24;j++){ const q=gcPoint(a,b,j/24); d+=(j?'L':'M')+X(q[1]).toFixed(1)+' '+Y(q[0]).toFixed(1); } return d; };
-  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden="true">`;
+  if(LAND){ let d=''; const mA=(a1-a0)*.1, mO=(o1-o0)*.1;
+    for(const L of LAND){ const b=L.b; if(b[1]<a0-mA||b[0]>a1+mA||b[3]<o0-mO||b[2]>o1+mO) continue;
+      d+='M'+L.pts.map(p=>X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('L')+'Z'; }
+    if(d) svg+=`<path d="${d}" fill="var(--land)" stroke="var(--coast)" stroke-width="1" stroke-linejoin="round"/>`; }
   for(let i=0;i<pts.length-1;i++){ const a=pts[i],b=pts[i+1],done=b.arr<=now;
     if(P.state==='sea'&&P.from===a&&pos){ svg+=`<path d="${path(a.ll,pos)}" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/><path d="${path(pos,b.ll)}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 8" opacity=".8"/>`; }
     else svg+=`<path d="${path(a.ll,b.ll)}" fill="none" stroke="var(--accent)" stroke-width="${done?4:3}" ${done?'opacity=".5"':'stroke-dasharray="6 8" opacity=".8"'}/>`; }
