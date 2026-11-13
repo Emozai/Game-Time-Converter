@@ -242,11 +242,6 @@
   .posmap{height:300px;border-radius:12px;margin:14px 0 8px;background:var(--accent-soft);overflow:hidden}
   .posmap.off{display:none}
   .cmhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  .cmbtns{display:flex;gap:8px;flex-wrap:wrap}
-  .cmframe{position:relative;height:460px;border-radius:12px;margin:14px 0 8px;background:var(--accent-soft);overflow:hidden;border:1px solid var(--line)}
-  .cmframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-  .cmframe .cmload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px}
-  @media (max-width:600px){.cmframe{height:380px}}
   .shipicon{background:none;border:0}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
   .toast.show{opacity:1}
@@ -321,17 +316,11 @@
   <section class="card" id="cmCard">
     <div class="cmhead">
       <div>
-        <h2 style="margin:0">Live map · CruiseMapper</h2>
-        <div class="muted" style="margin-top:4px;font-size:14px">The ship's live AIS position from CruiseMapper. Needs internet.</div>
+        <h2 style="margin:0">Current itinerary · CruiseMapper</h2>
+        <div class="muted" style="margin-top:4px;font-size:14px">See the ship's latest voyage and port schedule on CruiseMapper. Needs internet.</div>
       </div>
-      <div class="cmbtns">
-        <button type="button" class="small primary" id="cmToggle" aria-expanded="false">🗺 Show live map</button>
-        <button type="button" class="small" id="cmReload" hidden title="Reload the map for the newest position">↻ Refresh</button>
-        <a id="cmOpen" class="livebtn" href="https://www.cruisemapper.com/?imo=9677076" target="_blank" rel="noopener">Open on CruiseMapper ↗</a>
-      </div>
+      <a id="cmItin" class="livebtn" href="https://www.cruisemapper.com/ships/Norwegian-Escape-878?tab=itinerary" target="_blank" rel="noopener">📅 View current itinerary ↗</a>
     </div>
-    <div class="cmframe" id="cmFrame" hidden><div class="cmload">Loading CruiseMapper…</div></div>
-    <div class="hint" id="cmNote" hidden>If the map stays blank, the ship's internet or security software may be blocking it — use “Open on CruiseMapper ↗” instead.</div>
   </section>
 
 
@@ -2202,29 +2191,7 @@ function renderHeaderInfo(){
 }
 
 setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); renderHeaderInfo(); },30000);
-// ---- CruiseMapper live map (loads only when asked, so nothing outside is downloaded until then) ----
-const CM_MAP='https://www.cruisemapper.com/?imo=9677076';   // Norwegian Escape, IMO 9677076
-function cmShow(on){
-  const box=$('cmFrame'), btn=$('cmToggle');
-  box.hidden=!on; $('cmNote').hidden=!on; $('cmReload').hidden=!on;
-  btn.textContent=on?'Hide live map':'🗺 Show live map'; btn.setAttribute('aria-expanded',on?'true':'false');
-  if(on && !box.querySelector('iframe')) cmLoad();
-  if(!on){ const f=box.querySelector('iframe'); if(f) f.remove(); }
-  store.set('cmOpen',on);
-}
-function cmLoad(){
-  const box=$('cmFrame'); const old=box.querySelector('iframe'); if(old) old.remove();
-  box.querySelector('.cmload').hidden=false;
-  const f=document.createElement('iframe');
-  f.src=CM_MAP+'&t='+Date.now(); f.title='Norwegian Escape live position on CruiseMapper';
-  f.loading='lazy'; f.referrerPolicy='no-referrer'; f.allow='fullscreen';
-  f.onload=()=>{ box.querySelector('.cmload').hidden=true; };
-  box.appendChild(f);
-}
-$('cmOpen').href=CM_MAP;
-$('cmToggle').addEventListener('click',()=>cmShow($('cmFrame').hidden));
-$('cmReload').addEventListener('click',cmLoad);
-if(store.get('cmOpen',false)) cmShow(true);
+try{ localStorage.removeItem('gtc_cmOpen'); }catch(e){}
 
 function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderHeaderInfo(); }
 renderSources(); renderAll();
