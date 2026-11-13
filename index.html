@@ -241,6 +241,12 @@
   .progl span:nth-child(2){font-weight:700;color:var(--ink)}
   .posmap{height:300px;border-radius:12px;margin:14px 0 8px;background:var(--accent-soft);overflow:hidden}
   .posmap.off{display:none}
+  .livebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px;padding:10px 14px;border-radius:12px;background:var(--accent-soft);font-size:14px}
+  .livebox .ld{width:10px;height:10px;border-radius:50%;background:#1DB954;box-shadow:0 0 0 0 rgba(29,185,84,.6);animation:lpulse 2s infinite}
+  .livebox.old .ld{background:var(--muted);animation:none}
+  .livebox b{color:var(--ink)}
+  .livebox .mono{font-family:var(--mono);font-size:13px}
+  @keyframes lpulse{0%{box-shadow:0 0 0 0 rgba(29,185,84,.6)}70%{box-shadow:0 0 0 9px rgba(29,185,84,0)}100%{box-shadow:0 0 0 0 rgba(29,185,84,0)}}
   .shipicon{background:none;border:0}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
   .toast.show{opacity:1}
@@ -309,6 +315,7 @@
     <div class="prog"><div class="bar" id="posBar"></div></div>
     <div class="progl"><span id="posFrom"></span><span id="posPct"></span><span id="posTo"></span></div>
     <div id="posMap" class="posmap" role="img" aria-label="Map of the voyage route with the ship's estimated position"></div>
+    <div class="livebox" id="posLiveBox" hidden></div>
     <div class="hint" id="posNote">Estimated from the voyage plan (scheduled departure, arrival and route), not live GPS. Use the CruiseMapper button for the live AIS position.</div>
   </section>
 
@@ -2079,10 +2086,45 @@ function loadLeaflet(){
     sc.onload=()=>res(window.L); sc.onerror=()=>rej(); document.head.appendChild(sc);
   });
 }
+// ---- Live AIS position (from the JVL ship-position helper on Cloudflare) ----
+var LIVE_URL='https://shipposition.emozailanada.workers.dev/';
+var live=store.get('livePos',null), liveBusy=false;
+function fetchLive(){
+  if(liveBusy || (typeof navigator!=='undefined' && navigator.onLine===false)) return;
+  liveBusy=true;
+  const ctl=('AbortController' in window)?new AbortController():null; const t=setTimeout(()=>ctl&&ctl.abort(),30000);
+  fetch(store.get('liveUrl','')||LIVE_URL,{cache:'no-store',signal:ctl?ctl.signal:undefined})
+    .then(r=>r.json()).then(d=>{ if(d&&d.ok&&typeof d.lat==='number'&&typeof d.lon==='number'){ live=d; store.set('livePos',d); renderPosition(); } })
+    .catch(()=>{}).finally(()=>{ clearTimeout(t); liveBusy=false; });
+}
+function liveFresh(){ return live && typeof live.time==='number' && Date.now()-live.time < 12*3600000; }
+function liveAgo(ms){ const m=Math.round(ms/60000); if(m<1) return 'just now'; if(m<60) return m+' min ago'; const h=Math.floor(m/60); return h+' h '+(m%60)+' min ago'; }
+function renderLiveBox(){
+  const box=$('posLiveBox');
+  if(!liveFresh()){ box.hidden=true; return false; }
+  const age=Date.now()-live.time, old=age>45*60000;
+  const ll=`${Math.abs(live.lat).toFixed(3)}°${live.lat>=0?'N':'S'} ${Math.abs(live.lon).toFixed(3)}°${live.lon>=0?'E':'W'}`;
+  const bits=[];
+  if(live.sog!=null) bits.push(`<b>${live.sog.toFixed(1)} kn</b>`);
+  if(live.cog!=null && live.sog>0.5) bits.push(`course ${Math.round(live.cog)}°`);
+  if(live.status) bits.push(esc(live.status));
+  if(live.destination) bits.push('heading to '+esc(live.destination));
+  box.className='livebox'+(old?' old':''); box.hidden=false;
+  box.innerHTML=`<span class="ld" aria-hidden="true"></span><span><b>${old?'Last AIS position':'Live AIS position'}</b> · <span class="mono">${ll}</span>${bits.length?' · '+bits.join(' · '):''} · <span class="muted">updated ${liveAgo(age)}</span></span>`;
+  return true;
+}
 function renderPosition(){
   const card=$('posCard'), now=Date.now(), P=shipPosition(now);
-  if(!P){ card.hidden=true; return; }
-  card.hidden=false;
+  const hasLive=renderLiveBox();
+  const livePos=hasLive?[live.lat,live.lon]:null;
+  $('posNote').textContent=hasLive?'Ship position from live AIS (via aisstream.io). The route and arrival times come from the voyage plan.'
+    :'Estimated from the voyage plan (scheduled departure, arrival and route), not live GPS. Use the CruiseMapper button for the live AIS position.';
+  if(!P){
+    if(!hasLive){ card.hidden=true; return; }
+    card.hidden=false; $('posText').innerHTML='Load a voyage plan to see the route and arrival times.';
+    $('posBar').parentElement.hidden=true; $('posFrom').parentElement.hidden=true; $('posMap').classList.add('off'); return;
+  }
+  card.hidden=false; $('posBar').parentElement.hidden=false; $('posFrom').parentElement.hidden=false;
   const url=store.get('trackUrl','')||'https://www.cruisemapper.com/ships/Norwegian-Escape-878';
   $('posLive').href=url;
   const h24=$('h24').checked, arrS=c=>{ const s=shipLocal(voy,chg(),c.arr); return `${WDL[s.wd]} ${s.d} ${MON(s.mo)} ${fmtTime(s.h,s.mi,h24)}`; };
@@ -2100,6 +2142,7 @@ function renderPosition(){
     const nx=P.calls[P.legIdx+1]; if(nx&&!P.ended) txt+=` · next: ${esc(nx.name)}, ${arrS(nx)}`;
     $('posFrom').textContent=P.at.name; $('posTo').textContent=nx?nx.name:''; $('posPct').textContent=P.ended?'Arrived':'In port';
   }
+  if(livePos){ pos=livePos; txt=txt.replace(/<br><span style="font-family:var\(--mono\);font-size:12.5px">≈[^<]*<\/span>/,''); }
   $('posText').innerHTML=txt; $('posBar').style.width=pct+'%';
   // map
   const pts=P.calls.filter(c=>c.ll);
@@ -2142,7 +2185,7 @@ function drawRouteSvg(pts,pos,P,now){
   const seen={};
   pts.forEach(c=>{ const x=X(c.ll[1]),y=Y(c.ll[0]); svg+=`<circle cx="${x}" cy="${y}" r="5" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/>`;
     const key=Math.round(x/40)+','+Math.round(y/20); if(!seen[key]){ seen[key]=1; svg+=`<text x="${x+8}" y="${y-8}" font-size="13" fill="var(--muted)" font-family="Inter,system-ui,sans-serif">${esc(c.name)}</text>`; } });
-  if(pos){ const x=X(pos[1]),y=Y(pos[0]); svg+=`<circle cx="${x}" cy="${y}" r="13" fill="#F5C542" stroke="#0B2545" stroke-width="2"/><path transform="translate(${x-9} ${y-9}) scale(.55)" d="M8 19h18l-3 5H11z M12 18v-5h8l2 5 M15 13v-3h3v3" fill="#0B2545"/>`; }
+  if(pos){ const x=X(pos[1]),y=Y(pos[0]); svg+=`<circle cx="${x}" cy="${y}" r="13" fill="#F5C542" stroke="#0B2545" stroke-width="2"><title>${liveFresh()?'Live AIS position':'Estimated position'}</title></circle><path transform="translate(${x-9} ${y-9}) scale(.55)" d="M8 19h18l-3 5H11z M12 18v-5h8l2 5 M15 13v-3h3v3" fill="#0B2545"/>`; }
   el.innerHTML=svg+'</svg>';
 }
 
@@ -2181,6 +2224,9 @@ function renderHeaderInfo(){
 }
 
 setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); renderHeaderInfo(); },30000);
+fetchLive(); setInterval(fetchLive,120000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) fetchLive(); });
+window.addEventListener('online',fetchLive);
 
 function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderHeaderInfo(); }
 renderSources(); renderAll();
