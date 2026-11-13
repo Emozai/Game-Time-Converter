@@ -48,6 +48,12 @@
   @media (max-width:600px){ .mark{width:48px;height:48px;border-radius:12px} .mark svg{width:34px;height:34px} .chips{gap:6px} .chip{font-size:12px;padding:4px 9px} }
   *{box-sizing:border-box}
   [hidden]{display:none!important}
+  .chancell{min-width:96px}
+  input.chan{width:88px;padding:6px 8px;font:700 14px var(--mono);text-align:center;border:1.5px dashed var(--accent);border-radius:8px;background:var(--accent-soft);color:var(--ink)}
+  input.chan:focus{border-style:solid;outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+  input.chan:not(:placeholder-shown){border-style:solid;background:#F5C542;color:#0b2545;border-color:#F5C542}
+  .chanhint{margin:0 0 10px}
+  .linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
   .poster-dlg{width:min(560px,calc(100vw - 20px));max-height:calc(100vh - 30px);padding:0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);display:none;flex-direction:column}
   .poster-dlg[open]{display:flex}
   .poster-dlg::backdrop{background:rgba(5,12,24,.6)}
@@ -78,6 +84,7 @@
     #printPoster .pp-chg{color:#b45309!important;font-size:11px}
     #printPoster .pp-n{text-align:right;white-space:nowrap}
     #printPoster .pp-n span{display:inline-block;border:1px solid #d9b44a;color:#7a5600;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:700}
+    #printPoster .pp-ch{display:inline-block;font-style:normal;background:#F5C542;color:#0b2545;border-radius:8px;padding:3px 10px;font-weight:800;font-size:14px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     #printPoster .pp-past{opacity:.5}
     #printPoster .pp-foot{display:flex;justify-content:space-between;margin-top:16px;padding-top:8px;border-top:1px solid #dde3ea;font-size:11px;color:#5b6b80}
   }
@@ -478,6 +485,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
         <button class="small" id="copyList">Copy crew notice</button>
       </div>
     </div>
+    <div class="hint chanhint" id="chanHint" hidden>📺 Type the ship's TV channel for each game in the <b>Ship Channel</b> column — games on the same network fill in by themselves. Channels show on the image, the printout and the copied lists. <button type="button" class="linkbtn" id="chanClear">Clear channels</button></div>
     <div class="results"><table><thead id="resHead"></thead><tbody id="resBody"></tbody></table></div>
     <div class="notes" id="resNotes"></div>
   </section>
@@ -1789,6 +1797,12 @@ $('clearS').onclick=()=>{$('sched').value='';convertSchedule(true);};
 $('sched').addEventListener('paste',()=>setTimeout(()=>convertSchedule(false),0));
 
 /* Build the report (same data for screen, CSV and clipboard) */
+/* ---- ship TV channel, typed in by hand for each game (kept on this device) ---- */
+let chanMap=store.get('chanMap',{});
+function rowKey(x){ return (x.utc||'')+'|'+x.r.extras.map(e=>(e&&e.val)||'').join('|'); }
+function chanGet(x){ return chanMap[rowKey(x)]||''; }
+function netOf(x){ const names=lastResults.names||[]; const i=names.findIndex(n=>/network|broadcast|channel|station|\btv\b/i.test(n||'')); return i>=0?((x.r.extras[i]||{}).val||'').trim():''; }
+function chanLabel(v){ v=String(v||'').trim(); return /^\d+[a-z]?$/i.test(v)?'CH '+v:v; }
 function buildReport(){
   const {res,names,zone,group}=lastResults; if(!res||!res.length) return null;
   const h24=$('h24').checked, hidePast=$('hidePast').checked;
@@ -1820,6 +1834,7 @@ function buildReport(){
   cols.push({h:`${L} (Ship Time)`,v:x=>x.tbd?'TBD':shipStamp(x.s),cls:'shipc'});
   if(hasEnd) cols.push({h:'End (Ship Time)',v:x=>x.e?shipStamp(x.e.s):'',cls:'shipc'});
   cols.push({h:'Ship Day',v:x=>x.tbd?'':WDL[x.s.wd]});
+  cols.push({h:'Ship Channel',v:x=>chanGet(x),chan:true});
   noteIdx.forEach(i=>cols.push({h:names[i]||'Notes',v:x=>x.r.extras[i]?.val||'',cls:'wrap'}));
   const rows=res.filter(x=>!(hidePast&&x.past));
 
@@ -1884,11 +1899,21 @@ function renderReport(){
       if(x.s.range!=='in') tags+='<span class="tag day">outside voyage plan</span> ';
       if(x.alt||(x.e&&x.e.alt)) tags+='<span class="tag chg">near clock change</span> ';
     }
-    return `<tr class="${x.past?'past':''}">`+R.cols.map(c=>`<td class="${c.cls||''}">${esc(c.v(x))}</td>`).join('')+`<td>${tags}</td></tr>`;
+    return `<tr class="${x.past?'past':''}">`+R.cols.map(c=>c.chan?`<td class="chancell"><input class="chan" data-k="${esc(rowKey(x))}" data-net="${esc(netOf(x))}" value="${esc(chanGet(x))}" placeholder="Ch #" aria-label="Ship TV channel" maxlength="24"></td>`:`<td class="${c.cls||''}">${esc(c.v(x))}</td>`).join('')+`<td>${tags}</td></tr>`;
   }).join('')||`<tr><td colspan="${R.cols.length+1}" class="muted">Nothing to show (all events are past).</td></tr>`;
+  $('chanHint').hidden=false;
   $('resNotes').innerHTML='<b>Notes</b><ul>'+R.notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul><div class="hint">Blue cells are inputs: the original times and the ship UTC offsets from the voyage plan.</div>';
 }
 
+$('resBody').addEventListener('input',ev=>{ const el=ev.target; if(!el.classList||!el.classList.contains('chan')) return;
+  const v=el.value.trim(); if(v) chanMap[el.dataset.k]=v; else delete chanMap[el.dataset.k]; store.set('chanMap',chanMap); });
+$('resBody').addEventListener('change',ev=>{ const el=ev.target; if(!el.classList||!el.classList.contains('chan')) return;
+  const v=el.value.trim(), net=el.dataset.net; if(!v||!net) return;
+  let n=0; $('resBody').querySelectorAll('input.chan').forEach(o=>{ if(o!==el&&o.dataset.net.toLowerCase()===net.toLowerCase()&&!o.value.trim()){ o.value=v; chanMap[o.dataset.k]=v; n++; } });
+  if(n){ store.set('chanMap',chanMap); toast(`${chanLabel(v)} also filled in for ${n} other ${net} game${n>1?'s':''}`); } });
+$('resBody').addEventListener('keydown',ev=>{ if(ev.key==='Enter'&&ev.target.classList&&ev.target.classList.contains('chan')){ ev.preventDefault();
+  const all=[...$('resBody').querySelectorAll('input.chan')]; const i=all.indexOf(ev.target); ev.target.blur(); if(all[i+1]) all[i+1].focus(); } });
+$('chanClear').onclick=()=>{ $('resBody').querySelectorAll('input.chan').forEach(o=>{ delete chanMap[o.dataset.k]; o.value=''; }); store.set('chanMap',chanMap); toast('Channels cleared'); };
 function reportGrid(){
   const R=buildReport(); if(!R) return null;
   const w=R.cols.length, padRow=a=>{const r=a.slice(); while(r.length<w) r.push(''); return r;};
@@ -1967,7 +1992,8 @@ $('copyList').onclick=()=>{
     else { const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=names.findIndex(n=>/channel|network|station/i.test(n||''));
       desc=ev>=0?ex[ev]+(ch>=0&&ex[ch]?` (${ex[ch]})`:''):ex.filter(v=>!/^\d{1,2}$/.test(v)).join(' · '); }
     const endTxt=x.e?'–'+fmtTime(x.e.s.h,x.e.s.mi,h24):'';
-    out.push(`${(fmtTime(x.s.h,x.s.mi,h24)+endTxt).padStart(x.e?13:8)}  ${desc}`); }
+    const chTxt=chanGet(x)?'  ▸ '+chanLabel(chanGet(x)):'';
+    out.push(`${(fmtTime(x.s.h,x.s.mi,h24)+endTxt).padStart(x.e?13:8)}  ${desc}${chTxt}`); }
   copyText(out.join('\n'),'Crew notice');
 };
 
@@ -1987,7 +2013,7 @@ function noticeData(){
     else if(ev>=0){ line1=ex[ev]; net=ch>=0?ex[ch]:''; }
     else line1=ex.filter(v=>v&&!/^\d{1,2}$/.test(v)).join(' · ');
     const t=fmtTime(x.s.h,x.s.mi,h24), e=x.e?fmtTime(x.e.s.h,x.e.s.mi,h24):'';
-    cur.items.push({time:t,end:e,line1:line1||'Event',line2,net,past:!!x.past,live:!!x.live,chg:!!(x.alt||(x.e&&x.e.alt))});
+    cur.items.push({chan:chanLabel(chanGet(x)),time:t,end:e,line1:line1||'Event',line2,net,past:!!x.past,live:!!x.live,chg:!!(x.alt||(x.e&&x.e.alt))});
   }
   const m=R.title.match(/^(.*?)\s*\((.*)\)\s*$/);
   const head=(m?m[1]:R.title).replace(/\s+—\s+/,' · ');
@@ -2050,6 +2076,7 @@ function posterCanvas(N){
       g.strokeStyle='rgba(255,255,255,.12)'; g.lineWidth=2; g.beginPath(); g.moveTo(x+TW,b.y+24); g.lineTo(x+TW,b.y+b.h-24); g.stroke();
       // chips on the right
       let chipX=x+w-28; const chip=(txt,bgc,fg)=>{ g.font=font(700,19); const cw=g.measureText(txt).width+28; chipX-=cw; rr(chipX,mid-19,cw,38,19); g.fillStyle=bgc; g.fill(); g.fillStyle=fg; g.fillText(txt,chipX+14,mid+1); chipX-=10; };
+      if(it.chan){ g.font=font(800,26); const cw=g.measureText(it.chan).width+34; chipX-=cw; rr(chipX,mid-25,cw,50,14); g.fillStyle='#F5C542'; g.fill(); g.fillStyle='#0b2545'; g.fillText(it.chan,chipX+17,mid+1); chipX-=12; }
       if(it.live) chip('LIVE NOW','#ff6b5e','#fff');
       else if(it.past) chip('PLAYED','rgba(255,255,255,.18)','#fff');
       if(it.net) chip(it.net.length>16?it.net.slice(0,15)+'…':it.net,'rgba(245,197,66,.16)','#F5C542');
@@ -2100,7 +2127,7 @@ function printPoster(){
       const tm=it.time.match(/^(\d{1,2}:\d{2})\s*(AM|PM)?$/);
       return `<tr class="${it.past?'pp-past':''}"><td class="pp-t">${tm?e(tm[1])+(tm[2]?` <small>${tm[2]}</small>`:''):e(it.time)}${it.end?`<div class="pp-end">until ${e(it.end)}</div>`:''}</td>`+
         `<td class="pp-m"><b>${e(it.line1)}</b>${it.line2?`<div>${e(it.line2)}</div>`:''}${it.chg?'<div class="pp-chg">⚠ near a clock change</div>':''}</td>`+
-        `<td class="pp-n">${it.net?`<span>${e(it.net)}</span>`:''}${it.past?' <i>played</i>':''}</td></tr>`; }).join('')}</table></section>`).join('')
+        `<td class="pp-n">${it.net?`<span>${e(it.net)}</span>`:''}${it.chan?` <em class="pp-ch">${e(it.chan)}</em>`:''}${it.past?' <i>played</i>':''}</td></tr>`; }).join('')}</table></section>`).join('')
       :'<p>No upcoming games.</p>')+
     `<div class="pp-foot"><span>All times are ship time · clocks change at ${e(N.chg)} ship time</span><b>Made by JVL - Broadcast</b></div>`;
   let el=$('printPoster'); if(!el){ el=document.createElement('div'); el.id='printPoster'; document.body.appendChild(el); }
