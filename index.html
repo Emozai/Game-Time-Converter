@@ -470,7 +470,7 @@ ESC261113	13-Nov-2026	Fri	1	Norwegian Escape	Port Canaveral, FL	…	07:00	16:00	
     <div class="row admin-only" style="margin-bottom:12px">
       <div style="flex:3 1 380px"><label for="rTitle">Report title</label><input id="rTitle"></div>
       <div style="flex:1 1 180px"><label for="rShip">Ship</label><input id="rShip"></div>
-      <div style="flex:0 0 auto"><label class="toggle" id="incNetWrap" style="margin-bottom:9px"><input type="checkbox" id="incNet"> Include network column</label></div>
+      <div style="flex:0 0 auto"><label class="toggle" id="incNetWrap" style="margin-bottom:9px"><input type="checkbox" id="incNet"> Include network name</label></div>
     </div>
     <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="flex:1 1 auto">
@@ -1809,12 +1809,12 @@ function buildReport(){
   const idx=re=>names.findIndex(n=>re.test(n||''));
   const wi=idx(/^(week|wk)\b/i), ai=idx(/away|visitor|road/i), hi=idx(/home/i);
   const isNFL=ai>=0&&hi>=0;
-  const ni=isNFL?idx(/network|broadcast|channel|\btv\b/i):-1;
+  const ni=isNFL?idx(/network|broadcast|channel|\btv\b/i):idx(/network|broadcast/i);
   const noteIdx=names.map((n,i)=>/note|remark|comment|info/i.test(n||'')?i:-1).filter(i=>i>=0&&![wi,ai,hi,ni].includes(i));
   const other=names.map((_,i)=>i).filter(i=>![wi,ai,hi,ni,...noteIdx].includes(i));
   const evIdx=other.find(i=>/event|program|title|show|match|game/i.test(names[i]||''))??other.find(i=>!/channel|network|station/i.test(names[i]||''))??other[0];
   const incNet=$('incNet').checked&&ni>=0;
-  $('incNetWrap').style.display=isNFL?'':'none';
+  $('incNetWrap').style.display=ni>=0?'':'none';
   const za=lastResults.srcAbbr||shortZ(zone);
   const L=isNFL?'Kickoff':'Start';
   const hasEnd=res.some(x=>x.e);
@@ -1881,7 +1881,7 @@ function buildReport(){
   });
   const outside=timed.filter(x=>x.s.range!=='in').length;
   if(outside) notes.push(`${outside} event(s) fall outside the voyage plan dates — load the next voyage plan for those.`);
-  return {title,offLine,cols,nInfo,rows,notes};
+  return {title,offLine,cols,nInfo,rows,notes,ni,incNet};
 }
 
 function renderReport(){
@@ -1985,11 +1985,11 @@ async function copyText(t,label){ try{ await navigator.clipboard.writeText(t); t
 $('copyList').onclick=()=>{
   const R=buildReport(); if(!R) return; const {names}=lastResults; const h24=$('h24').checked;
   let out=[R.title.toUpperCase(),''], last=null;
-  const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=names.findIndex(n=>/network|broadcast|channel|\btv\b/i.test(n||''));
+  const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=R.incNet?R.ni:-1;   // network name only when "Include network" is ticked
   for(const x of R.rows){ if(x.tbd) continue; const key=ymd(x.s.y,x.s.mo,x.s.d); if(key!==last){ if(last) out.push(''); out.push(fmtDate(x.s.y,x.s.mo,x.s.d,x.s.wd,true).toUpperCase()); last=key; }
     const ex=x.r.extras.map(e=>e.val); let desc;
     if(ai>=0&&hi>=0) desc=`${ex[ai]} @ ${ex[hi]}`+(ni>=0&&ex[ni]?` (${ex[ni]})`:'');
-    else { const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=names.findIndex(n=>/channel|network|station/i.test(n||''));
+    else { const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=ni>=0?ni:names.findIndex((n,i)=>i!==R.ni&&/channel|station/i.test(n||''));
       desc=ev>=0?ex[ev]+(ch>=0&&ex[ch]?` (${ex[ch]})`:''):ex.filter(v=>!/^\d{1,2}$/.test(v)).join(' · '); }
     const endTxt=x.e?'–'+fmtTime(x.e.s.h,x.e.s.mi,h24):'';
     const chTxt=chanGet(x)?'  ▸ '+chanLabel(chanGet(x)):'';
@@ -2001,8 +2001,8 @@ $('copyList').onclick=()=>{
 function noticeData(){
   const R=buildReport(); if(!R) return null;
   const {names}=lastResults; const h24=$('h24').checked;
-  const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=names.findIndex(n=>/network|broadcast|channel|\btv\b/i.test(n||''));
-  const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=names.findIndex(n=>/channel|network|station/i.test(n||''));
+  const ai=names.findIndex(n=>/away|visitor|road/i.test(n||'')), hi=names.findIndex(n=>/home/i.test(n||'')), ni=R.incNet?R.ni:-1;   // network name only when "Include network" is ticked
+  const ev=names.findIndex(n=>/event|program|title|show|match|game/i.test(n||'')), ch=ni>=0?ni:names.findIndex((n,i)=>i!==R.ni&&/channel|station/i.test(n||''));
   const days=[]; let cur=null;
   for(const x of R.rows){ if(x.tbd) continue;
     const key=ymd(x.s.y,x.s.mo,x.s.d);
