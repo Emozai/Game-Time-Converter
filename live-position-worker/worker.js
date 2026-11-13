@@ -92,7 +92,7 @@ async function refresh(env, waitMs) {
   const old = (await env.SHIP.get(KEY, 'json')) || {};
   const got = await listen(env, waitMs);
   if (!got.pos && !got.destination) return old;
-  const rec = { ...old, ship: SHIP_NAME, mmsi: MMSI };
+  const rec = { ...old, ship: SHIP_NAME, mmsi: MMSI, source: 'aisstream.io' };
   if (got.pos) Object.assign(rec, got.pos);
   if (got.destination) rec.destination = got.destination;
   if (got.eta) rec.eta = got.eta;

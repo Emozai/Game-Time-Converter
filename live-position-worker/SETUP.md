@@ -1,4 +1,7 @@
-# Live ship position — setup (about 10 minutes, one time)
+# OPTIONAL backup: live ship position from aisstream.io
+
+Not needed: the site's own `_worker.js` already reads the live position from CruiseMapper.
+Set this up only if CruiseMapper stops giving a position.
 
 The Game Time Converter asks this small Cloudflare Worker for the Norwegian Escape's live AIS position.
 The Worker gets it from aisstream.io (free) and keeps the last known position.
