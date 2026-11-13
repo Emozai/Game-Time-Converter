@@ -241,7 +241,6 @@
   .progl span:nth-child(2){font-weight:700;color:var(--ink)}
   .posmap{height:300px;border-radius:12px;margin:14px 0 8px;background:var(--accent-soft);overflow:hidden}
   .posmap.off{display:none}
-  .cmhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
   .shipicon{background:none;border:0}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
   .toast.show{opacity:1}
@@ -313,15 +312,6 @@
     <div class="hint" id="posNote">Estimated from the voyage plan (scheduled departure, arrival and route), not live GPS. Use the CruiseMapper button for the live AIS position.</div>
   </section>
 
-  <section class="card" id="cmCard">
-    <div class="cmhead">
-      <div>
-        <h2 style="margin:0">Current itinerary · CruiseMapper</h2>
-        <div class="muted" style="margin-top:4px;font-size:14px">See the ship's latest voyage and port schedule on CruiseMapper. Needs internet.</div>
-      </div>
-      <a id="cmItin" class="livebtn" href="https://www.cruisemapper.com/ships/Norwegian-Escape-878?tab=itinerary" target="_blank" rel="noopener">📅 View current itinerary ↗</a>
-    </div>
-  </section>
 
 
   <div class="grid2">
@@ -2191,7 +2181,6 @@ function renderHeaderInfo(){
 }
 
 setInterval(()=>{ renderNext(); renderBanner(); renderPosition(); renderHeaderInfo(); },30000);
-try{ localStorage.removeItem('gtc_cmOpen'); }catch(e){}
 
 function renderAll(){ tickClock(); renderVoy(); renderNow(); renderQuick(); renderReverse(); convertSchedule(true); renderNext(); renderBanner(); renderVoySummary(); renderPosition(); renderHeaderInfo(); }
 renderSources(); renderAll();
